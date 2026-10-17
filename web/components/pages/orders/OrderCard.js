@@ -12,6 +12,8 @@ export default function OrderCard({
   onOpenBill,
   onOpenPay,
   onOpenReturn,
+  onAcceptDelivery,
+  onDeliver,
 }) {
   const o = order;
 
@@ -73,8 +75,20 @@ export default function OrderCard({
           </span>
         )}
         {o.status === 'ready' && (
-          <span className="badge st-ready" style={{ fontWeight: 600 }}>
-            🛎️ Cooked • Ready to Deliver
+          <div className="row wrap" style={{ gap: '4px' }}>
+            <span className="badge st-ready" style={{ fontWeight: 600 }}>
+              🛎️ Cooked • Ready for Pickup
+            </span>
+            {o.acceptedForDeliveryBy && (
+              <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 600 }}>
+                🚚 Accepted
+              </span>
+            )}
+          </div>
+        )}
+        {o.status === 'delivered' && (
+          <span className="badge" style={{ background: '#ecfdf5', color: '#065f46', fontWeight: 600 }}>
+            🚚 Delivered to Table
           </span>
         )}
 
@@ -99,23 +113,48 @@ export default function OrderCard({
           </button>
         )}
 
+        {/* Staff Delivery Actions for Ready Orders */}
         {o.status === 'ready' && canCashier && (
+          <>
+            {!o.acceptedForDeliveryBy && onAcceptDelivery && (
+              <button
+                className="btn sm"
+                disabled={acting === o.id}
+                onClick={() => onAcceptDelivery(o)}
+                title="Accept this order for table delivery"
+              >
+                Accept Delivery
+              </button>
+            )}
+            <button
+              className="btn sm primary"
+              disabled={acting === o.id}
+              onClick={() => onDeliver ? onDeliver(o) : onMove(o, 'delivered')}
+              title={`Deliver order to ${o.tableNumber ? `Table ${o.tableNumber}` : 'Customer'}`}
+            >
+              🚚 Deliver to Table {o.tableNumber ? `(${o.tableNumber})` : ''}
+            </button>
+          </>
+        )}
+
+        {/* Delivered Orders Completion */}
+        {o.status === 'delivered' && canCashier && (
           o.paymentStatus === 'paid' ? (
             <button
               className="btn sm primary"
               disabled={acting === o.id}
               onClick={() => onMove(o, 'completed')}
-              title={`Deliver order to ${o.tableNumber ? `Table ${o.tableNumber}` : 'Customer'}`}
+              title="Close and complete this order"
             >
-              🚀 Take &amp; Deliver to Customer {o.tableNumber ? `(${o.tableNumber})` : ''}
+              ✅ Complete &amp; Close Bill
             </button>
           ) : (
             <button
               className="btn sm primary"
               onClick={() => onOpenPay(o)}
-              title="Collect payment before delivering"
+              title="Collect remaining payment and complete order"
             >
-              Pay &amp; Deliver to Table {o.tableNumber ? `(${o.tableNumber})` : ''}
+              Collect Payment &amp; Complete
             </button>
           )
         )}

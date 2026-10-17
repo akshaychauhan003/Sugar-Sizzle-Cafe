@@ -6,6 +6,8 @@ const { authenticate, requireAnyRole, requireRole } = require('../middleware/aut
 const asyncHandler = require('../lib/asyncHandler');
 const { notFound, badRequest } = require('../lib/errors');
 const { todayStr } = require('../lib/dates');
+const stockService = require('../services/stockService');
+const auditService = require('../services/auditService');
 
 router.use(authenticate);
 
@@ -70,9 +72,22 @@ router.get('/expiring', requireAnyRole('admin', 'shift_manager', 'kitchen'), asy
   res.json({ data: expiring });
 }));
 
+// Stock alerts (low stock, expiring within N days, expired)
+router.get('/alerts', requireAnyRole('admin', 'shift_manager', 'kitchen', 'cashier'), asyncHandler(async (req, res) => {
+  const days = req.query.days ? Number(req.query.days) : 3;
+  const alerts = await stockService.getStockAlerts(days);
+  res.json({ data: alerts });
+}));
+
+// Recalculate menu items availability based on stock levels
+router.post('/recalculate-availability', requireAnyRole('admin', 'shift_manager', 'kitchen'), asyncHandler(async (_req, res) => {
+  await stockService.recalculateDishAvailability();
+  res.json({ ok: true, message: 'Dish availability recalculated successfully' });
+}));
+
 // Add new stock batch (Admin, Shift Manager, Kitchen Chef)
 router.post('/', requireAnyRole('admin', 'shift_manager', 'kitchen'), asyncHandler(async (req, res) => {
-  const { itemName, category, quantity, unit, costPrice, batchNumber, supplier, purchaseDate, expiryDate, notes, linkedMenuItemIds } = req.body;
+  const { itemName, category, quantity, unit, costPrice, batchNumber, supplier, purchaseDate, expiryDate, notes, minimumQuantity, linkedMenuItemIds } = req.body;
 
   if (!itemName || !itemName.trim()) {
     throw badRequest('Item name is required');
@@ -102,7 +117,7 @@ router.post('/', requireAnyRole('admin', 'shift_manager', 'kitchen'), asyncHandl
     status = 'expired';
   } else if (quantity === 0) {
     status = 'out_of_stock';
-  } else if (quantity <= 5) {
+  } else if (quantity <= (Number(minimumQuantity) || 5)) {
     status = 'low_stock';
   }
 
@@ -116,18 +131,61 @@ router.post('/', requireAnyRole('admin', 'shift_manager', 'kitchen'), asyncHandl
     supplier: supplier ? supplier.trim() : 'Local Supplier',
     purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
     expiryDate: expDateObj,
+    minimumQuantity: minimumQuantity !== undefined ? Number(minimumQuantity) : 5,
     notes: notes ? notes.trim() : '',
     status,
     linkedMenuItemIds: linkedMenuItemIds || [],
     createdBy: req.user._id,
   });
 
+  await stockService.recalculateDishAvailability();
+  await auditService.log(
+    req.user,
+    'stock.add',
+    'Stock',
+    stock._id,
+    `Added stock batch ${stock.batchNumber} (${stock.itemName}, ${stock.quantity} ${stock.unit})`,
+    { stockId: stock._id, batchNumber: stock.batchNumber, quantity: stock.quantity }
+  );
+
   res.status(201).json({ stock });
+}));
+
+// Record stock wastage / spoilage (Chef, Shift Manager, Admin)
+router.post('/:id/waste', requireAnyRole('admin', 'shift_manager', 'kitchen'), asyncHandler(async (req, res) => {
+  const { quantity, reason } = req.body;
+  if (!quantity || Number(quantity) <= 0) {
+    throw badRequest('Valid wastage quantity is required');
+  }
+  const stock = await stockService.recordStockWastage({
+    stockId: req.params.id,
+    quantity: Number(quantity),
+    reason: reason || 'Expired / Damaged',
+    user: req.user,
+  });
+  res.json({ ok: true, stock });
+}));
+
+// Request stock replenishment (Chef, Staff -> alerts Manager/Admin)
+router.post('/:id/request-replenish', requireAnyRole('admin', 'shift_manager', 'kitchen', 'staff'), asyncHandler(async (req, res) => {
+  const stock = await Stock.findById(req.params.id);
+  if (!stock) throw notFound('Stock item not found');
+
+  await auditService.log(
+    req.user,
+    'stock.request_replenish',
+    'Stock',
+    stock._id,
+    `Replenishment requested for ${stock.itemName} (Available: ${stock.quantity} ${stock.unit})`,
+    { stockId: stock._id, itemName: stock.itemName, currentQty: stock.quantity, requestedBy: req.user._id }
+  );
+
+  res.json({ ok: true, message: `Replenishment request submitted for ${stock.itemName}` });
 }));
 
 // Update stock (Admin, Shift Manager, Kitchen Chef)
 router.patch('/:id', requireAnyRole('admin', 'shift_manager', 'kitchen'), asyncHandler(async (req, res) => {
-  const { quantity, status, expiryDate, notes, supplier, costPrice, unit, category, itemName } = req.body;
+  const { quantity, status, expiryDate, notes, supplier, costPrice, unit, category, itemName, minimumQuantity } = req.body;
   const update = {};
 
   if (itemName !== undefined) update.itemName = itemName.trim();
@@ -136,12 +194,14 @@ router.patch('/:id', requireAnyRole('admin', 'shift_manager', 'kitchen'), asyncH
   if (costPrice !== undefined) update.costPrice = Number(costPrice);
   if (supplier !== undefined) update.supplier = supplier.trim();
   if (notes !== undefined) update.notes = notes.trim();
+  if (minimumQuantity !== undefined) update.minimumQuantity = Number(minimumQuantity);
 
   if (quantity !== undefined) {
     update.quantity = Number(quantity);
+    const minQty = update.minimumQuantity !== undefined ? update.minimumQuantity : 5;
     if (update.quantity === 0) {
       update.status = 'out_of_stock';
-    } else if (update.quantity <= 5 && (!status || status === 'in_stock')) {
+    } else if (update.quantity <= minQty && (!status || status === 'in_stock')) {
       update.status = 'low_stock';
     }
   }
@@ -158,6 +218,16 @@ router.patch('/:id', requireAnyRole('admin', 'shift_manager', 'kitchen'), asyncH
   const stock = await Stock.findByIdAndUpdate(req.params.id, { $set: update }, { new: true });
   if (!stock) throw notFound('Stock batch not found');
 
+  await stockService.recalculateDishAvailability();
+  await auditService.log(
+    req.user,
+    'stock.update',
+    'Stock',
+    stock._id,
+    `Updated stock ${stock.itemName} (Qty: ${stock.quantity} ${stock.unit})`,
+    { stockId: stock._id, updates: update }
+  );
+
   res.json({ stock });
 }));
 
@@ -165,6 +235,15 @@ router.patch('/:id', requireAnyRole('admin', 'shift_manager', 'kitchen'), asyncH
 router.delete('/:id', requireRole('admin'), asyncHandler(async (req, res) => {
   const stock = await Stock.findByIdAndDelete(req.params.id);
   if (!stock) throw notFound('Stock batch not found');
+  await stockService.recalculateDishAvailability();
+  await auditService.log(
+    req.user,
+    'stock.delete',
+    'Stock',
+    stock._id,
+    `Deleted stock batch ${stock.batchNumber} (${stock.itemName})`,
+    { stockId: stock._id, batchNumber: stock.batchNumber }
+  );
   res.json({ ok: true, message: 'Stock batch deleted' });
 }));
 

@@ -65,6 +65,14 @@ router.post('/:id/confirm', validate({ params: S.idParam }), asyncHandler(async 
   res.json({ order: await svc.confirmOrder(req.user, req.params.id, req.body?.note) });
 }));
 
+router.post('/:id/accept-delivery', validate({ params: S.idParam }), asyncHandler(async (req, res) => {
+  res.json({ order: await svc.acceptDelivery(req.user, req.params.id) });
+}));
+
+router.post('/:id/deliver', validate({ params: S.idParam }), asyncHandler(async (req, res) => {
+  res.json({ order: await svc.changeStatus(req.user, req.params.id, 'delivered', req.body?.note) });
+}));
+
 router.post('/:id/payment', validate({ params: S.idParam, body: S.recordPayment }), asyncHandler(async (req, res) => {
   const body = { ...req.body, idempotencyKey: req.body.idempotencyKey || idemKey(req) };
   const { order, replay } = await svc.recordPayment(req.user, req.params.id, body);

@@ -16,6 +16,7 @@ const kitchenService = require('./kitchenService');
 const invoiceService = require('./invoiceService');
 const tableService = require('./tableService');
 const auditService = require('./auditService');
+const stockService = require('./stockService');
 
 async function getTaxRate() {
   const s = await Setting.findOne({ key: 'taxRate' }).lean();
@@ -317,11 +318,21 @@ async function changeStatus(user, id, to, note) {
     stamps.isConfirmed = true;
     stamps.confirmedAt = now;
     stamps.confirmedBy = user._id;
+    stamps.preparedBy = user._id;
   }
-  if (to === 'ready') stamps.preparedAt = now;
+  if (to === 'ready') {
+    stamps.preparedAt = now;
+    if (!order.preparedBy) stamps.preparedBy = user._id;
+  }
+  if (to === 'delivered') {
+    stamps.deliveredAt = now;
+    stamps.deliveredBy = user._id;
+  }
   if (to === 'completed') {
     stamps.completedAt = now;
     stamps.servedAt = now;
+    if (!order.deliveredAt) stamps.deliveredAt = now;
+    if (!order.deliveredBy) stamps.deliveredBy = user._id;
   }
 
   const filter = { _id: id, status: order.status, amountPaidMinor: order.amountPaidMinor };
@@ -344,6 +355,7 @@ async function changeStatus(user, id, to, note) {
 
   if (to === 'preparing') {
     await kitchenService.createTicketForOrder(updated, { kitchenNotes: note });
+    await stockService.deductRecipeStockForOrder(updated, user);
   }
   if (to === 'ready') {
     await kitchenService.markTicketReadyForOrder(updated._id);
@@ -354,19 +366,7 @@ async function changeStatus(user, id, to, note) {
   }
   if (to === 'cancelled') {
     await tableService.releaseFromOrder(updated);
-    for (const line of updated.items) {
-      const restored = await MenuItem.findOneAndUpdate(
-        { _id: line.menuItem, inventoryQuantity: { $ne: null } },
-        { $inc: { inventoryQuantity: line.quantity } },
-        { new: true }
-      );
-      if (restored && restored.inventoryQuantity > 0 && (restored.stockStatus === 'out_of_stock' || !restored.isAvailable)) {
-        await MenuItem.findByIdAndUpdate(line.menuItem, {
-          isAvailable: true,
-          stockStatus: restored.inventoryQuantity <= 5 ? 'low_stock' : 'in_stock',
-        });
-      }
-    }
+    await stockService.restoreRecipeStockForOrder(updated, user, note || 'Order cancelled');
   }
 
   await auditService.log(user, 'order.status', 'Order', updated._id, `${updated.orderNumber} → ${to}`, { from: order.status, to });
@@ -401,6 +401,7 @@ async function confirmOrder(user, id, note) {
         confirmedAt: now,
         confirmedBy: user._id,
         acceptedAt: now,
+        preparedBy: user._id,
       },
       $push: {
         statusHistory: { status: 'preparing', by: user._id, note: note || 'Order confirmed and sent to kitchen' },
@@ -418,7 +419,38 @@ async function confirmOrder(user, id, note) {
   }
 
   await kitchenService.createTicketForOrder(updated, { kitchenNotes: note });
+  await stockService.deductRecipeStockForOrder(updated, user);
   await auditService.log(user, 'order.confirm', 'Order', updated._id, `Confirmed ${updated.orderNumber}`, { from: 'pending', to: 'preparing' });
+  return updated;
+}
+
+async function acceptDelivery(user, id) {
+  const order = await Order.findById(id);
+  if (!order) throw notFound('Order not found');
+  if (order.status !== 'ready') {
+    throw conflict(`Cannot accept order with status '${order.status}' for delivery`, 'INVALID_STATUS');
+  }
+  const now = new Date();
+  const updated = await Order.findByIdAndUpdate(
+    id,
+    {
+      $set: {
+        acceptedForDeliveryBy: user._id,
+        acceptedForDeliveryAt: now,
+      },
+    },
+    { new: true },
+  ).populate('acceptedForDeliveryBy', 'name role');
+
+  await auditService.log(
+    user,
+    'order.accept_delivery',
+    'Order',
+    updated._id,
+    `Accepted delivery for ${updated.orderNumber}`,
+    { orderId: updated._id, orderNumber: updated.orderNumber }
+  );
+
   return updated;
 }
 
@@ -706,6 +738,6 @@ async function refundOrder(user, id, { amount, reason = '', restock = true } = {
 
 module.exports = {
   getTaxRate, quote, createOrder, updateOrder, changeStatus, confirmOrder, recordPayment,
-  getOrderPayments, refundOrder, processSalesReturn, buildListFilter, mongoose,
+  getOrderPayments, refundOrder, processSalesReturn, buildListFilter, acceptDelivery, mongoose,
 };
 

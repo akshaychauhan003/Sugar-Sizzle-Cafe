@@ -68,6 +68,32 @@ export default function OrdersPage() {
     }
   }
 
+  async function acceptDelivery(o) {
+    setActing(o.id);
+    try {
+      await api(`/orders/${o.id}/accept-delivery`, { method: 'POST' });
+      toast(`Accepted ${o.orderNumber} for delivery!`);
+      await load();
+    } catch (e) {
+      toast(errMsg(e), 'err');
+    } finally {
+      setActing('');
+    }
+  }
+
+  async function deliverOrder(o) {
+    setActing(o.id);
+    try {
+      await api(`/orders/${o.id}/deliver`, { method: 'POST' });
+      toast(`${o.orderNumber} marked as delivered to table!`);
+      await load();
+    } catch (e) {
+      toast(errMsg(e), 'err');
+    } finally {
+      setActing('');
+    }
+  }
+
   async function openBill(o, reprint) {
     try {
       const { order } = await api(`/orders/${o.id}`);
@@ -87,8 +113,10 @@ export default function OrdersPage() {
 
   const grouped = useMemo(() => {
     const g = Object.fromEntries(ORDER_COLS.map((c) => [c.key, []]));
-    (orders || []).forEach((o) => g[o.status]?.push(o));
-    g.completed = g.completed.slice(0, 10);
+    (orders || []).forEach((o) => {
+      if (g[o.status]) g[o.status].push(o);
+    });
+    g.completed = (g.completed || []).slice(0, 10);
     return g;
   }, [orders]);
 
@@ -97,7 +125,8 @@ export default function OrdersPage() {
     return {
       waiting: grouped.pending?.length || 0,
       ready: grouped.ready?.length || 0,
-      live: all.filter((o) => ['pending', 'preparing', 'ready'].includes(o.status)).length,
+      delivered: grouped.delivered?.length || 0,
+      live: all.filter((o) => ['pending', 'preparing', 'ready', 'delivered'].includes(o.status)).length,
     };
   }, [orders, grouped]);
 
@@ -134,6 +163,8 @@ export default function OrdersPage() {
           onOpenBill={openBill}
           onOpenPay={(o) => setPay(o)}
           onOpenReturn={(o) => setReturnOrder(o)}
+          onAcceptDelivery={acceptDelivery}
+          onDeliver={deliverOrder}
         />
       )}
 

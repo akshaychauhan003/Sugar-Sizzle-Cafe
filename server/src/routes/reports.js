@@ -86,6 +86,18 @@ router.get('/completed', validate({ query: historyQuery }), asyncHandler(async (
   res.json(await reportService.completedHistory(req.query));
 }));
 
+router.get('/employee-performance', requireAnyRole('admin', 'shift_manager', 'cashier', 'staff', 'kitchen'), validate({ query: S.dailySalesQuery }), asyncHandler(async (req, res) => {
+  res.json({ report: await reportService.employeePerformance(req.query) });
+}));
+
+router.get('/food-items-ranking', validate({ query: S.dailySalesQuery }), asyncHandler(async (req, res) => {
+  res.json({ report: await reportService.foodItemsRanking(req.query) });
+}));
+
+router.get('/stock-wastage', requireAnyRole('admin', 'shift_manager', 'kitchen'), asyncHandler(async (_req, res) => {
+  res.json({ report: await reportService.stockWastageReport() });
+}));
+
 router.get('/audit', requireAnyRole('admin', 'shift_manager'), validate({ query: S.auditQuery }), asyncHandler(async (req, res) => {
   res.json(await reportService.listAudit(req.query));
 }));

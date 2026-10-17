@@ -78,70 +78,102 @@ const MENU = [
   })));
   const catByName = Object.fromEntries(categories.map((c) => [c.name, c]));
 
-  const items = await MenuItem.insertMany(MENU.map(([name, sku, category, price, prepTimeMin, description, cost, recipe]) => ({
-    name, sku, category, categoryId: catByName[category]?._id,
-    price, cost, prepTimeMin, description, recipe,
-    stockStatus: sku === 'MAI-0025' ? 'out_of_stock' : sku === 'BEV-0081' ? 'low_stock' : 'in_stock',
-    isAvailable: sku !== 'MAI-0025' && sku !== 'BEV-0081',
-    inventoryQuantity: sku === 'MAI-0025' ? 0 : sku === 'BEV-0081' ? 3 : 45,
-    modifiers: category === 'Pizzas' ? [{ name: 'Extra cheese', price: 2 }, { name: 'Gluten-free base', price: 3 }] : [],
-  })));
-
   const now = new Date();
   const inDays = (d) => new Date(now.getTime() + d * 86400000);
 
-  await Stock.insertMany([
+  const stockDocs = await Stock.insertMany([
     {
       itemName: 'Buffalo Mozzarella Cheese', category: 'Dairy', quantity: 12, unit: 'kg', costPrice: 420,
       batchNumber: 'STK-2026-001', supplier: 'Artisan Valley Farms', purchaseDate: inDays(-5), expiryDate: inDays(3),
-      status: 'in_stock', notes: 'Fresh Italian buffalo mozzarella for Neapolitan pizzas', createdBy: byRole.admin._id,
+      status: 'in_stock', minimumQuantity: 5, notes: 'Fresh Italian buffalo mozzarella for Neapolitan pizzas', createdBy: byRole.admin._id,
     },
     {
       itemName: 'Heavy Dairy Cream', category: 'Dairy', quantity: 4, unit: 'L', costPrice: 180,
       batchNumber: 'STK-2026-002', supplier: 'Highland Pure Dairies', purchaseDate: inDays(-4), expiryDate: inDays(2),
-      status: 'low_stock', notes: 'Dessert preparation & sauce reduction', createdBy: byRole.admin._id,
+      status: 'low_stock', minimumQuantity: 6, notes: 'Dessert preparation & sauce reduction', createdBy: byRole.admin._id,
     },
     {
       itemName: 'Prime Wagyu Ground Chuck', category: 'Meat & Seafood', quantity: 24, unit: 'kg', costPrice: 1200,
       batchNumber: 'STK-2026-003', supplier: 'Miyazaki Meats Co.', purchaseDate: inDays(-2), expiryDate: inDays(5),
-      status: 'in_stock', notes: 'For signature Wagyu burgers', createdBy: byRole.admin._id,
+      status: 'in_stock', minimumQuantity: 8, notes: 'For signature Wagyu burgers', createdBy: byRole.admin._id,
     },
     {
       itemName: 'Single-Origin Ethiopian Yirgacheffe Beans', category: 'Coffee & Tea', quantity: 45, unit: 'kg', costPrice: 650,
       batchNumber: 'STK-2026-004', supplier: 'Equator Coffee Roasters', purchaseDate: inDays(-10), expiryDate: inDays(50),
-      status: 'in_stock', notes: 'Light floral roast for cold brew & espresso', createdBy: byRole.admin._id,
+      status: 'in_stock', minimumQuantity: 10, notes: 'Light floral roast for cold brew & espresso', createdBy: byRole.admin._id,
     },
     {
       itemName: 'Artisan Brioche Burger Buns', category: 'Bakery', quantity: 48, unit: 'units', costPrice: 22,
       batchNumber: 'STK-2026-005', supplier: 'Golden Crust Bakery', purchaseDate: inDays(-1), expiryDate: inDays(4),
-      status: 'in_stock', notes: 'Freshly baked butter brioche', createdBy: byRole.admin._id,
+      status: 'in_stock', minimumQuantity: 12, notes: 'Freshly baked butter brioche', createdBy: byRole.admin._id,
     },
     {
       itemName: 'San Marzano D.O.P. Whole Peeled Tomatoes', category: 'Dry Goods', quantity: 36, unit: 'cans', costPrice: 135,
       batchNumber: 'STK-2026-006', supplier: 'Napoli Food Direct', purchaseDate: inDays(-20), expiryDate: inDays(120),
-      status: 'in_stock', notes: 'Pizza base and slow cooked marinara', createdBy: byRole.admin._id,
+      status: 'in_stock', minimumQuantity: 10, notes: 'Pizza base and slow cooked marinara', createdBy: byRole.admin._id,
     },
     {
       itemName: 'Fresh Monterey Bay Squid', category: 'Meat & Seafood', quantity: 10, unit: 'kg', costPrice: 390,
       batchNumber: 'STK-2026-007', supplier: 'Pacific Coast Fishery', purchaseDate: inDays(-3), expiryDate: inDays(2),
-      status: 'in_stock', notes: 'Flash-fried calamari fritti prep', createdBy: byRole.admin._id,
+      status: 'in_stock', minimumQuantity: 4, notes: 'Flash-fried calamari fritti prep', createdBy: byRole.admin._id,
     },
     {
       itemName: 'Barista Grade Oat Milk', category: 'Beverages', quantity: 32, unit: 'L', costPrice: 210,
       batchNumber: 'STK-2026-008', supplier: 'PureOat Organics', purchaseDate: inDays(-7), expiryDate: inDays(25),
-      status: 'in_stock', notes: 'Plant-based coffee specialty lattes', createdBy: byRole.admin._id,
+      status: 'in_stock', minimumQuantity: 8, notes: 'Plant-based coffee specialty lattes', createdBy: byRole.admin._id,
     },
     {
       itemName: 'Wild Black Truffle Aioli', category: 'Produce', quantity: 8, unit: 'jars', costPrice: 780,
       batchNumber: 'STK-2026-009', supplier: 'Umbria Truffles', purchaseDate: inDays(-15), expiryDate: inDays(70),
-      status: 'in_stock', notes: 'Gourmet burger & parmesan fry dip', createdBy: byRole.admin._id,
+      status: 'in_stock', minimumQuantity: 2, notes: 'Gourmet burger & parmesan fry dip', createdBy: byRole.admin._id,
     },
     {
       itemName: 'Mediterranean Sea Bass Fillets', category: 'Meat & Seafood', quantity: 0, unit: 'kg', costPrice: 580,
       batchNumber: 'STK-2026-010', supplier: 'Coastal Catch Ltd', purchaseDate: inDays(-6), expiryDate: inDays(-1),
-      status: 'expired', notes: 'Out of stock & expired batch - pending discard', createdBy: byRole.admin._id,
+      status: 'expired', minimumQuantity: 5, wastedQuantity: 5, wasteReason: 'Expired past shelf life', notes: 'Out of stock & expired batch - discarded', createdBy: byRole.admin._id,
     },
   ]);
+
+  const stockByName = Object.fromEntries(stockDocs.map((s) => [s.itemName, s]));
+
+  const items = await MenuItem.insertMany(MENU.map(([name, sku, category, price, prepTimeMin, description, cost, recipe]) => {
+    let recipeItems = [];
+    if (sku === 'PIZ-0102') {
+      recipeItems = [
+        { stockItem: stockByName['Buffalo Mozzarella Cheese']?._id, stockItemName: 'Buffalo Mozzarella Cheese', quantityRequired: 0.2, unit: 'kg' },
+        { stockItem: stockByName['San Marzano D.O.P. Whole Peeled Tomatoes']?._id, stockItemName: 'San Marzano D.O.P. Whole Peeled Tomatoes', quantityRequired: 1, unit: 'cans' },
+      ];
+    } else if (sku === 'BUR-0044') {
+      recipeItems = [
+        { stockItem: stockByName['Prime Wagyu Ground Chuck']?._id, stockItemName: 'Prime Wagyu Ground Chuck', quantityRequired: 0.2, unit: 'kg' },
+        { stockItem: stockByName['Artisan Brioche Burger Buns']?._id, stockItemName: 'Artisan Brioche Burger Buns', quantityRequired: 1, unit: 'units' },
+        { stockItem: stockByName['Wild Black Truffle Aioli']?._id, stockItemName: 'Wild Black Truffle Aioli', quantityRequired: 0.05, unit: 'jars' },
+      ];
+    } else if (sku === 'APP-0012') {
+      recipeItems = [
+        { stockItem: stockByName['Fresh Monterey Bay Squid']?._id, stockItemName: 'Fresh Monterey Bay Squid', quantityRequired: 0.25, unit: 'kg' },
+      ];
+    } else if (sku === 'BEV-0081') {
+      recipeItems = [
+        { stockItem: stockByName['Single-Origin Ethiopian Yirgacheffe Beans']?._id, stockItemName: 'Single-Origin Ethiopian Yirgacheffe Beans', quantityRequired: 0.03, unit: 'kg' },
+      ];
+    } else if (sku === 'MAI-0025') {
+      recipeItems = [
+        { stockItem: stockByName['Mediterranean Sea Bass Fillets']?._id, stockItemName: 'Mediterranean Sea Bass Fillets', quantityRequired: 0.3, unit: 'kg' },
+      ];
+    }
+
+    const isSeaBass = sku === 'MAI-0025';
+    return {
+      name, sku, category, categoryId: catByName[category]?._id,
+      price, cost, prepTimeMin, description, recipe,
+      recipeItems,
+      stockStatus: isSeaBass ? 'out_of_stock' : sku === 'BEV-0081' ? 'low_stock' : 'in_stock',
+      isAvailable: !isSeaBass && sku !== 'BEV-0081',
+      inventoryQuantity: isSeaBass ? 0 : sku === 'BEV-0081' ? 3 : 45,
+      modifiers: category === 'Pizzas' ? [{ name: 'Extra cheese', price: 2 }, { name: 'Gluten-free base', price: 3 }] : [],
+    };
+  }));
 
   await Setting.create({ key: 'taxRate', value: 5 });
 
@@ -196,9 +228,25 @@ const MENU = [
       const table = type === 'dine-in' ? tables[Math.floor(rnd() * tables.length)] : null;
 
       const stamps = {};
-      if (status !== 'pending' && status !== 'cancelled') stamps.acceptedAt = when;
-      if (['ready', 'completed'].includes(status)) stamps.preparedAt = when;
+      if (status !== 'pending' && status !== 'cancelled') {
+        stamps.acceptedAt = when;
+        stamps.isConfirmed = true;
+        stamps.confirmedAt = when;
+        stamps.confirmedBy = byRole.cashier._id;
+        stamps.preparedBy = byRole.kitchen._id;
+      }
+      if (['ready', 'delivered', 'completed'].includes(status)) {
+        stamps.preparedAt = when;
+      }
+      if (['delivered', 'completed'].includes(status)) {
+        stamps.acceptedForDeliveryBy = byRole.staff._id;
+        stamps.acceptedForDeliveryAt = when;
+        stamps.deliveredBy = byRole.staff._id;
+        stamps.deliveredAt = when;
+      }
       if (status === 'completed') { stamps.servedAt = when; stamps.completedAt = when; }
+
+      const orderCreator = [byRole.cashier._id, byRole.shift_manager._id, byRole.cashier._id, byRole.staff._id][k % 4];
 
       const order = await Order.create({
         orderNumber: `ORD-${key}-${String(counters[key]).padStart(4, '0')}`,
@@ -216,12 +264,12 @@ const MENU = [
         totalMinor: bill.totalMinor,
         status,
         statusHistory: [
-          { status: 'pending', by: byRole.staff._id, at: when },
-          ...(status !== 'pending' ? [{ status, by: byRole.staff._id, at: when }] : []),
+          { status: 'pending', by: orderCreator, at: when },
+          ...(status !== 'pending' ? [{ status, by: orderCreator, at: when }] : []),
         ],
         amountPaidMinor: paid ? bill.totalMinor : 0,
         payments: paid ? [{ method, amount: bill.total, amountMinor: bill.totalMinor, recordedBy: byRole.cashier._id, at: when }] : [],
-        createdBy: byRole.staff._id,
+        createdBy: orderCreator,
         createdAt: when,
         updatedAt: when,
         ...stamps,

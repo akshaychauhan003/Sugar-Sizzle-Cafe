@@ -220,6 +220,145 @@ async function exportDailyCsv(dateInput = todayStr()) {
   return [header.join(','), ...rows].join('\n');
 }
 
+async function employeePerformance(dateInput = todayStr()) {
+  const { start, end, label } = getQueryBounds(dateInput);
+  const User = require('../models/User');
+  const KitchenTicket = require('../models/KitchenTicket');
+
+  const users = await User.find({ isActive: true }).select('name email role roles').lean();
+  const inRange = { createdAt: { $gte: start, $lt: end }, status: { $ne: 'cancelled' } };
+
+  // 1. Orders taken by Cashier / Creator
+  const createdCounts = await Order.aggregate([
+    { $match: inRange },
+    { $group: { _id: '$createdBy', count: { $sum: 1 }, totalRevenue: { $sum: '$total' } } },
+  ]);
+  const createdMap = new Map(createdCounts.map((c) => [String(c._id), c]));
+
+  // 2. Orders cooked by Chef (preparedBy or KitchenTicket assignedTo)
+  const preparedCounts = await Order.aggregate([
+    { $match: { createdAt: { $gte: start, $lt: end }, preparedBy: { $ne: null } } },
+    { $group: { _id: '$preparedBy', count: { $sum: 1 } } },
+  ]);
+  const prepMap = new Map(preparedCounts.map((c) => [String(c._id), c.count]));
+
+  const ticketCounts = await KitchenTicket.aggregate([
+    { $match: { createdAt: { $gte: start, $lt: end }, assignedTo: { $ne: null } } },
+    { $group: { _id: '$assignedTo', count: { $sum: 1 } } },
+  ]);
+  const ticketMap = new Map(ticketCounts.map((c) => [String(c._id), c.count]));
+
+  // 3. Orders delivered by Staff (deliveredBy)
+  const deliveredCounts = await Order.aggregate([
+    { $match: { createdAt: { $gte: start, $lt: end }, deliveredBy: { $ne: null } } },
+    { $group: { _id: '$deliveredBy', count: { $sum: 1 } } },
+  ]);
+  const delMap = new Map(deliveredCounts.map((c) => [String(c._id), c.count]));
+
+  const performance = users.map((u) => {
+    const uid = String(u._id);
+    const taken = createdMap.get(uid)?.count || 0;
+    const rev = createdMap.get(uid)?.totalRevenue || 0;
+    const cooked = Math.max(prepMap.get(uid) || 0, ticketMap.get(uid) || 0);
+    const delivered = delMap.get(uid) || 0;
+    const totalTasks = taken + cooked + delivered;
+
+    return {
+      userId: uid,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      roles: u.roles || [u.role],
+      ordersTaken: taken,
+      revenueTaken: Math.round(rev * 100) / 100,
+      ordersCooked: cooked,
+      ordersDelivered: delivered,
+      totalTasksCompleted: totalTasks,
+    };
+  });
+
+  performance.sort((a, b) => b.totalTasksCompleted - a.totalTasksCompleted);
+
+  return {
+    date: label,
+    data: performance,
+    summary: {
+      totalEmployees: users.length,
+      totalOrdersTaken: performance.reduce((acc, p) => acc + p.ordersTaken, 0),
+      totalOrdersCooked: performance.reduce((acc, p) => acc + p.ordersCooked, 0),
+      totalOrdersDelivered: performance.reduce((acc, p) => acc + p.ordersDelivered, 0),
+    },
+  };
+}
+
+async function foodItemsRanking(dateInput = todayStr()) {
+  const { start, end, label } = getQueryBounds(dateInput);
+  const inRange = { createdAt: { $gte: start, $lt: end }, status: { $ne: 'cancelled' } };
+
+  const itemsAgg = await Order.aggregate([
+    { $match: inRange },
+    { $unwind: '$items' },
+    {
+      $group: {
+        _id: '$items.name',
+        menuItemId: { $first: '$items.menuItem' },
+        quantitySold: { $sum: '$items.quantity' },
+        totalRevenue: { $sum: '$items.lineTotal' },
+      },
+    },
+  ]);
+
+  const items = itemsAgg.map((i) => ({
+    name: i._id,
+    menuItemId: String(i.menuItemId),
+    quantitySold: i.quantitySold,
+    totalRevenue: Math.round(i.totalRevenue * 100) / 100,
+  }));
+
+  const byQuantity = [...items].sort((a, b) => b.quantitySold - a.quantitySold);
+  const byRevenue = [...items].sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+  return {
+    date: label,
+    highestByQuantity: byQuantity.slice(0, 10),
+    leastByQuantity: [...byQuantity].reverse().slice(0, 10),
+    highestByRevenue: byRevenue.slice(0, 10),
+    leastByRevenue: [...byRevenue].reverse().slice(0, 10),
+    allItems: byQuantity,
+  };
+}
+
+async function stockWastageReport() {
+  const Stock = require('../models/Stock');
+  const stocks = await Stock.find({
+    $or: [
+      { wastedQuantity: { $gt: 0 } },
+      { status: { $in: ['wasted', 'expired'] } },
+    ],
+  }).sort({ updatedAt: -1 }).lean();
+
+  const totalWastedCost = stocks.reduce((sum, s) => {
+    const qty = (s.wastedQuantity || 0) + (s.status === 'expired' ? (s.quantity || 0) : 0);
+    return sum + (qty * (s.costPrice || 0));
+  }, 0);
+
+  return {
+    items: stocks.map((s) => ({
+      id: String(s._id),
+      itemName: s.itemName,
+      batchNumber: s.batchNumber,
+      unit: s.unit,
+      costPrice: s.costPrice,
+      wastedQuantity: s.wastedQuantity || 0,
+      wasteReason: s.wasteReason || (s.status === 'expired' ? 'Expired Batch' : 'General Spoilage'),
+      status: s.status,
+      expiryDate: s.expiryDate,
+      totalLoss: Math.round(((s.wastedQuantity || 0) + (s.status === 'expired' ? (s.quantity || 0) : 0)) * (s.costPrice || 0) * 100) / 100,
+    })),
+    totalLoss: Math.round(totalWastedCost * 100) / 100,
+  };
+}
+
 module.exports = {
   dailySales,
   salesSummary,
@@ -229,5 +368,8 @@ module.exports = {
   listAudit,
   exportDailyCsv,
   verifyPassword,
+  employeePerformance,
+  foodItemsRanking,
+  stockWastageReport,
 };
 

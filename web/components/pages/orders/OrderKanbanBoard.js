@@ -14,6 +14,8 @@ export default function OrderKanbanBoard({
   onOpenBill,
   onOpenPay,
   onOpenReturn,
+  onAcceptDelivery,
+  onDeliver,
 }) {
   return (
     <div className="board">
@@ -38,6 +40,8 @@ export default function OrderKanbanBoard({
               onOpenBill={onOpenBill}
               onOpenPay={onOpenPay}
               onOpenReturn={onOpenReturn}
+              onAcceptDelivery={onAcceptDelivery}
+              onDeliver={onDeliver}
             />
           ))}
         </div>

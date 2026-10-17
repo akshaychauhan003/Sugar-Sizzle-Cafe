@@ -3,8 +3,9 @@
 export const ORDER_COLS = [
   { key: 'pending', title: 'Pending Orders' },
   { key: 'preparing', title: '🍳 Cooking in Kitchen' },
-  { key: 'ready', title: '🛎️ Cooked (Ready to Deliver)' },
-  { key: 'completed', title: '✅ Delivered to Customer' },
+  { key: 'ready', title: '🛎️ Ready for Pickup' },
+  { key: 'delivered', title: '🚚 Delivered to Table' },
+  { key: 'completed', title: '✅ Completed & Paid' },
 ];
 
 export default function OrderHeaderFilters({
