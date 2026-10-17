@@ -186,8 +186,14 @@ async function createOrder(user, input, idempotencyKey) {
   };
 
   if (table) {
-    if (table.status === 'occupied' && table.currentOrder) {
-      throw conflict(`Table ${table.code} is already occupied`, 'TABLE_OCCUPIED');
+    if (table.status !== 'available') {
+      if (table.status === 'occupied') {
+        throw conflict(`Table ${table.code} is already booked/occupied by dining guests`, 'TABLE_OCCUPIED');
+      }
+      if (table.status === 'cleaning') {
+        throw conflict(`Table ${table.code} has not been cleaned yet. Waitstaff must clean it before seating next customer.`, 'TABLE_NOT_CLEAN');
+      }
+      throw conflict(`Table ${table.code} is currently ${table.status} and cannot be booked`, 'TABLE_UNAVAILABLE');
     }
   }
 
@@ -361,7 +367,9 @@ async function changeStatus(user, id, to, note) {
     await kitchenService.markTicketReadyForOrder(updated._id);
   }
   if (to === 'completed') {
-    await tableService.releaseFromOrder(updated);
+    // Note: Do not automatically release table to 'available' when order is paid/completed.
+    // The table stays occupied until waitstaff confirms that customer has eaten & left,
+    // and then marks the table cleaned for the next customer.
     await invoiceService.createForOrder(updated);
   }
   if (to === 'cancelled') {

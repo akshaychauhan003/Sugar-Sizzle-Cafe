@@ -13,6 +13,9 @@ import AuditLogTable from './AuditLogTable';
 import ExportCsvModal from './ExportCsvModal';
 import EmployeePerformanceLeaderboard from './EmployeePerformanceLeaderboard';
 import FoodRankingCard from './FoodRankingCard';
+import FrequentCustomersCard from './FrequentCustomersCard';
+import SalesGraphsView from './SalesGraphsView';
+import OrgStockOverviewCard from './OrgStockOverviewCard';
 
 const getTodayStr = () => new Date().toISOString().slice(0, 10);
 const getPrevDayStr = (daysAgo) => {
@@ -57,7 +60,7 @@ export default function DashboardPage() {
       setR(report);
       setErr('');
       if (canManage) {
-        api(`/reports/audit?limit=12`).then((a) => setAudit(a.data)).catch(() => setAudit([]));
+        api(`/reports/audit?limit=50`).then((a) => setAudit(a.data)).catch(() => setAudit([]));
       }
       if (canShift) {
         api('/shifts/active').then((s) => setShift(s.shift)).catch(() => setShift(null));
@@ -90,6 +93,16 @@ export default function DashboardPage() {
     } else if (p === '7days') {
       setDate('');
       setStartDate(getPrevDayStr(6));
+      setEndDate(getTodayStr());
+    } else if (p === '30days') {
+      setDate('');
+      setStartDate(getPrevDayStr(29));
+      setEndDate(getTodayStr());
+    } else if (p === 'thisMonth') {
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+      setDate('');
+      setStartDate(first);
       setEndDate(getTodayStr());
     }
   }
@@ -172,9 +185,9 @@ export default function DashboardPage() {
   return (
     <div>
       <div className="row between wrap">
-        <h2>Daily Sales & Shift Summary {r ? `• ${r.date}` : ''}</h2>
-        <div className="row wrap">
-          <div className="tabs">
+        <h2>Daily Sales &amp; Shift Summary {r ? `• ${r.date}` : ''}</h2>
+        <div className="row wrap" style={{ alignItems: 'center', gap: '6px' }}>
+          <div className="tabs" style={{ margin: 0 }}>
             <button className={`tab ${preset === 'today' ? 'on' : ''}`} onClick={() => selectPreset('today')}>
               Today
             </button>
@@ -182,19 +195,25 @@ export default function DashboardPage() {
               Yesterday
             </button>
             <button className={`tab ${preset === '7days' ? 'on' : ''}`} onClick={() => selectPreset('7days')}>
-              Last 7 Days
+              7 Days
+            </button>
+            <button className={`tab ${preset === '30days' ? 'on' : ''}`} onClick={() => selectPreset('30days')}>
+              30 Days
+            </button>
+            <button className={`tab ${preset === 'thisMonth' ? 'on' : ''}`} onClick={() => selectPreset('thisMonth')}>
+              This Month
             </button>
             <button className={`tab ${preset === 'custom' ? 'on' : ''}`} onClick={() => setPreset('custom')}>
               Custom
             </button>
           </div>
           {preset === 'custom' ? (
-            <div className="row wrap">
-              <label className="row small">
-                From <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <div className="row wrap" style={{ alignItems: 'center', gap: '6px' }}>
+              <label className="row small" style={{ gap: '4px', margin: 0 }}>
+                From <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ height: '34px', fontSize: '0.84rem' }} />
               </label>
-              <label className="row small">
-                To <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <label className="row small" style={{ gap: '4px', margin: 0 }}>
+                To <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ height: '34px', fontSize: '0.84rem' }} />
               </label>
             </div>
           ) : (
@@ -207,12 +226,25 @@ export default function DashboardPage() {
                 setStartDate('');
                 setEndDate('');
               }}
+              style={{ height: '34px', fontSize: '0.84rem' }}
+              title="Pick a single date"
             />
           )}
-          <button className="btn sm" onClick={() => setExportOpen(true)}>
+          {preset !== 'today' && (
+            <button
+              type="button"
+              className="btn sm"
+              onClick={() => selectPreset('today')}
+              title="Reset date filter to today"
+              style={{ height: '34px' }}
+            >
+              Today ↺
+            </button>
+          )}
+          <button className="btn sm" onClick={() => setExportOpen(true)} style={{ height: '34px' }}>
             Export CSV
           </button>
-          <button className="btn sm primary" onClick={() => window.print()}>
+          <button className="btn sm primary" onClick={() => window.print()} style={{ height: '34px' }}>
             Print Summary (Z-Report)
           </button>
         </div>
@@ -225,7 +257,42 @@ export default function DashboardPage() {
           className={`dash-sec-tab ${activeSection === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveSection('overview')}
         >
-          📊 Sales &amp; Analytics
+          📊 Overview &amp; KPIs
+        </button>
+        <button
+          type="button"
+          className={`dash-sec-tab ${activeSection === 'graphs' ? 'active' : ''}`}
+          onClick={() => setActiveSection('graphs')}
+        >
+          📈 Sales Graphs
+        </button>
+        <button
+          type="button"
+          className={`dash-sec-tab ${activeSection === 'products' ? 'active' : ''}`}
+          onClick={() => setActiveSection('products')}
+        >
+          🏆 Most Sold Dishes
+        </button>
+        <button
+          type="button"
+          className={`dash-sec-tab ${activeSection === 'customers' ? 'active' : ''}`}
+          onClick={() => setActiveSection('customers')}
+        >
+          👑 Frequent Customers
+        </button>
+        <button
+          type="button"
+          className={`dash-sec-tab ${activeSection === 'stocks' ? 'active' : ''}`}
+          onClick={() => setActiveSection('stocks')}
+        >
+          📦 Org Stock Assets
+        </button>
+        <button
+          type="button"
+          className={`dash-sec-tab ${activeSection === 'performance' ? 'active' : ''}`}
+          onClick={() => setActiveSection('performance')}
+        >
+          👥 Staff Performance
         </button>
         {canShift && (
           <button
@@ -233,22 +300,15 @@ export default function DashboardPage() {
             className={`dash-sec-tab ${activeSection === 'shift' ? 'active' : ''}`}
             onClick={() => setActiveSection('shift')}
           >
-            💼 Shift Register &amp; Cash
+            💼 Shift Cash
           </button>
         )}
-        <button
-          type="button"
-          className={`dash-sec-tab ${activeSection === 'performance' ? 'active' : ''}`}
-          onClick={() => setActiveSection('performance')}
-        >
-          👥 Employee Performance
-        </button>
         <button
           type="button"
           className={`dash-sec-tab ${activeSection === 'orders' ? 'active' : ''}`}
           onClick={() => setActiveSection('orders')}
         >
-          📋 Recent Orders ({r?.recentOrders?.length || 0})
+          📋 Orders ({r?.recentOrders?.length || 0})
         </button>
         {canManage && (
           <button
@@ -265,7 +325,7 @@ export default function DashboardPage() {
           onClick={() => setActiveSection('all')}
           title="Show complete dashboard view with all sections"
         >
-          📑 Complete Summary
+          📑 Complete View
         </button>
       </div>
 
@@ -275,15 +335,17 @@ export default function DashboardPage() {
         !err && <Spinner />
       ) : (
         <>
-          {/* Section 1: Sales Metrics & Performance */}
+          {/* Section: Overview & Key Metrics */}
           <div className={`dash-section-pane ${activeSection === 'overview' || activeSection === 'all' ? 'visible' : 'hidden'}`}>
             <SalesMetricsCards report={r} />
-
+            <OrgStockOverviewCard />
+            <SalesGraphsView date={date} startDate={startDate} endDate={endDate} />
             <FoodRankingCard date={date} startDate={startDate} endDate={endDate} />
+            <FrequentCustomersCard date={date} startDate={startDate} endDate={endDate} />
 
             <div className="two">
               <div className="card">
-                <h3>Hourly revenue</h3>
+                <h3>Hourly Revenue</h3>
                 {r.netSales === 0 ? (
                   <Empty>No paid orders for this period.</Empty>
                 ) : (
@@ -294,9 +356,36 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Section 2: Shift Reconciliation & Float Management */}
+          {/* Section: Sales Graphs & Trends */}
+          <div className={`dash-section-pane ${activeSection === 'graphs' ? 'visible' : 'hidden'}`}>
+            <SalesGraphsView date={date} startDate={startDate} endDate={endDate} />
+            <div className="two">
+              <div className="card">
+                <h3>Hourly Sales Pattern</h3>
+                <HourlyRevenueChart hourly={r.hourly} />
+              </div>
+              <CollectionsMix report={r} />
+            </div>
+          </div>
+
+          {/* Section: Food Item Rankings */}
+          <div className={`dash-section-pane ${activeSection === 'products' ? 'visible' : 'hidden'}`}>
+            <FoodRankingCard date={date} startDate={startDate} endDate={endDate} />
+          </div>
+
+          {/* Section: Frequent Regular Customers */}
+          <div className={`dash-section-pane ${activeSection === 'customers' ? 'visible' : 'hidden'}`}>
+            <FrequentCustomersCard date={date} startDate={startDate} endDate={endDate} />
+          </div>
+
+          {/* Section: Organization Stock Overview */}
+          <div className={`dash-section-pane ${activeSection === 'stocks' ? 'visible' : 'hidden'}`}>
+            <OrgStockOverviewCard />
+          </div>
+
+          {/* Section: Shift Reconciliation & Float Management */}
           {canShift && (
-            <div className={`dash-section-pane ${activeSection === 'shift' || activeSection === 'all' ? 'visible' : 'hidden'}`}>
+            <div className={`dash-section-pane ${activeSection === 'shift' ? 'visible' : 'hidden'}`}>
               <ShiftReconciliation
                 shift={shift}
                 opening={opening}
@@ -318,18 +407,18 @@ export default function DashboardPage() {
           )}
 
           {/* Section: Employee Performance Leaderboard */}
-          <div className={`dash-section-pane ${activeSection === 'performance' || activeSection === 'all' ? 'visible' : 'hidden'}`}>
+          <div className={`dash-section-pane ${activeSection === 'performance' ? 'visible' : 'hidden'}`}>
             <EmployeePerformanceLeaderboard date={date} startDate={startDate} endDate={endDate} />
           </div>
 
-          {/* Section 3: Recent Orders Table */}
-          <div className={`dash-section-pane ${activeSection === 'orders' || activeSection === 'all' ? 'visible' : 'hidden'}`}>
+          {/* Section: Recent Orders Table */}
+          <div className={`dash-section-pane ${activeSection === 'orders' ? 'visible' : 'hidden'}`}>
             <RecentOrdersTable orders={r.recentOrders} onOpenBill={openBill} />
           </div>
 
-          {/* Section 4: Audit Trail Table */}
+          {/* Section: Audit Trail Table */}
           {canManage && (
-            <div className={`dash-section-pane ${activeSection === 'audit' || activeSection === 'all' ? 'visible' : 'hidden'}`}>
+            <div className={`dash-section-pane ${activeSection === 'audit' ? 'visible' : 'hidden'}`}>
               <AuditLogTable audit={audit} />
             </div>
           )}

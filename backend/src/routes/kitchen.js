@@ -25,6 +25,10 @@ router.patch('/tickets/:id/notes', validate({ params: S.idParam, body: S.kitchen
   res.json({ ticket: await kitchenService.addNotes(req.params.id, req.body.kitchenNotes, req.user) });
 }));
 
+router.post('/tickets/:id/start', validate({ params: S.idParam }), asyncHandler(async (req, res) => {
+  res.json({ ticket: await kitchenService.startCooking(req.params.id, req.user) });
+}));
+
 router.post('/tickets/:id/ready', validate({ params: S.idParam }), asyncHandler(async (req, res) => {
   res.json({ ticket: await kitchenService.markReady(req.params.id, req.user) });
 }));

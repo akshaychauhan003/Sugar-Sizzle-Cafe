@@ -14,10 +14,12 @@ export default function AuditLogTable({ audit }) {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('time'); // 'time' | 'user' | 'category'
+  const [sortDir, setSortDir] = useState('desc'); // 'desc' | 'asc'
 
-  const filtered = useMemo(() => {
+  const filteredAndSorted = useMemo(() => {
     if (!audit) return [];
-    return audit.filter((a) => {
+    let list = audit.filter((a) => {
       // Search filter
       const searchTarget = `${a.summary || ''} ${a.action || ''} ${a.user?.name || ''} ${a.user?.email || ''}`.toLowerCase();
       if (q.trim() && !searchTarget.includes(q.trim().toLowerCase())) return false;
@@ -38,7 +40,38 @@ export default function AuditLogTable({ audit }) {
 
       return true;
     });
-  }, [audit, q, cat, roleFilter]);
+
+    // Sorting
+    list.sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === 'time') {
+        cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      } else if (sortBy === 'user') {
+        cmp = (a.user?.name || '').localeCompare(b.user?.name || '');
+      } else if (sortBy === 'category') {
+        cmp = (a.action || '').localeCompare(b.action || '');
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+    return list;
+  }, [audit, q, cat, roleFilter, sortBy, sortDir]);
+
+  const hasFilters = q || cat !== 'all' || roleFilter !== 'all' || sortBy !== 'time' || sortDir !== 'desc';
+
+  function handleHeaderSort(col) {
+    if (sortBy === col) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(col);
+      setSortDir(col === 'time' ? 'desc' : 'asc');
+    }
+  }
+
+  const sortArrow = (col) => {
+    if (sortBy !== col) return <span style={{ opacity: 0.3, marginLeft: '4px' }}>↕</span>;
+    return <span style={{ color: '#6366f1', marginLeft: '4px' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>;
+  };
 
   function getActionBadge(action = '') {
     if (action.startsWith('order.')) {
@@ -63,20 +96,46 @@ export default function AuditLogTable({ audit }) {
     <div className="card tablewrap" style={{ marginTop: '16px', borderLeft: '4px solid #6366f1' }}>
       <div className="row between wrap" style={{ alignItems: 'center', marginBottom: '12px' }}>
         <div>
-          <h3 style={{ margin: 0 }}>🛡️ Employee Audit &amp; Activity Log</h3>
+          <div className="row" style={{ alignItems: 'center', gap: '8px' }}>
+            <h3 style={{ margin: 0 }}>🛡️ Employee Audit &amp; Activity Log</h3>
+            <span className="badge" style={{ background: '#ede9fe', color: '#4338ca', fontWeight: 700 }}>
+              {filteredAndSorted.length} Events
+            </span>
+          </div>
           <p className="muted small" style={{ margin: '2px 0 0' }}>
             Comprehensive tracking of employee actions, role shifts, cooking updates, and deliveries
           </p>
         </div>
 
-        {/* Filter Controls */}
+        {/* Filter Controls Toolbar */}
         <div className="row wrap" style={{ gap: '8px', alignItems: 'center' }}>
-          <input
-            placeholder="Search action, employee…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            style={{ minWidth: '180px', height: '36px', fontSize: '0.84rem' }}
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              placeholder="🔍 Search action, employee…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              style={{ minWidth: '180px', height: '36px', fontSize: '0.84rem', paddingRight: q ? '24px' : '8px' }}
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ('')}
+                style={{
+                  position: 'absolute',
+                  right: '6px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--muted)',
+                  fontWeight: 'bold',
+                }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
           <select
             value={cat}
@@ -99,25 +158,72 @@ export default function AuditLogTable({ audit }) {
             <option value="kitchen">Chef / Kitchen</option>
             <option value="staff">Staff</option>
           </select>
+
+          <select
+            value={`${sortBy}-${sortDir}`}
+            onChange={(e) => {
+              const [b, d] = e.target.value.split('-');
+              setSortBy(b);
+              setSortDir(d);
+            }}
+            style={{ height: '36px', fontSize: '0.84rem' }}
+          >
+            <option value="time-desc">🕒 Newest First</option>
+            <option value="time-asc">🕒 Oldest First</option>
+            <option value="user-asc">👤 Employee (A-Z)</option>
+            <option value="category-asc">🏷️ Action Category</option>
+          </select>
+
+          {hasFilters && (
+            <button
+              type="button"
+              className="btn sm"
+              onClick={() => {
+                setQ('');
+                setCat('all');
+                setRoleFilter('all');
+                setSortBy('time');
+                setSortDir('desc');
+              }}
+              style={{ height: '36px', fontSize: '0.82rem' }}
+            >
+              ✕ Reset
+            </button>
+          )}
         </div>
       </div>
 
       {!audit ? (
         <Spinner />
-      ) : filtered.length === 0 ? (
+      ) : filteredAndSorted.length === 0 ? (
         <Empty>No audit log events match your filter criteria.</Empty>
       ) : (
         <table className="tbl" style={{ width: '100%', minWidth: '650px' }}>
           <thead>
             <tr>
-              <th style={{ width: '160px' }}>Date &amp; Time</th>
-              <th style={{ width: '180px' }}>Employee</th>
-              <th style={{ width: '130px' }}>Category</th>
+              <th
+                style={{ width: '160px', cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => handleHeaderSort('time')}
+              >
+                Date &amp; Time{sortArrow('time')}
+              </th>
+              <th
+                style={{ width: '180px', cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => handleHeaderSort('user')}
+              >
+                Employee{sortArrow('user')}
+              </th>
+              <th
+                style={{ width: '130px', cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => handleHeaderSort('category')}
+              >
+                Category{sortArrow('category')}
+              </th>
               <th>Action Summary</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((a) => (
+            {filteredAndSorted.map((a) => (
               <tr key={a.id}>
                 <td style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>
                   {new Date(a.createdAt).toLocaleDateString()} {new Date(a.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

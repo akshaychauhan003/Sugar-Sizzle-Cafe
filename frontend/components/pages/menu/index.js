@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { api, download, errMsg } from '@/lib/api';
 import { useAuth, useToast } from '@/components/shared/AuthProvider';
 import { Empty, ErrorBox, Spinner } from '@/components/shared/ui';
@@ -13,8 +14,16 @@ import UserManager from '@/components/shared/UserManager';
 export default function MenuPage() {
   const { user } = useAuth();
   const toast = useToast();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams?.get('tab');
   const isAdmin = user?.role === 'admin';
-  const [activeTab, setActiveTab] = useState('menu'); // 'menu' | 'stocks' | 'users'
+  const [activeTab, setActiveTab] = useState(tabParam && ['menu', 'stocks', 'users'].includes(tabParam) ? tabParam : 'menu'); // 'menu' | 'stocks' | 'users'
+
+  useEffect(() => {
+    if (tabParam && ['menu', 'stocks', 'users'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
   const [data, setData] = useState(null);
   const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
   const [stats, setStats] = useState({ total: 0, available: 0, unavailable: 0 });

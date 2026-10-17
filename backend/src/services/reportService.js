@@ -42,7 +42,7 @@ async function dailySales(dateInput = todayStr()) {
     Order.aggregate([{ $match: { ...inDay, status: { $ne: 'cancelled' } } }, { $unwind: '$items' },
       { $group: { _id: '$items.name', quantity: { $sum: '$items.quantity' }, revenue: { $sum: '$items.lineTotal' } } },
       { $sort: { quantity: -1, revenue: -1 } }, { $limit: 5 }]),
-    Order.find(inDay).sort({ createdAt: -1 }).limit(8),
+    Order.find(inDay).sort({ createdAt: -1 }).limit(50),
     Order.aggregate([
       { $match: inDay },
       {
@@ -359,6 +359,206 @@ async function stockWastageReport() {
   };
 }
 
+async function topCustomers(dateInput = null) {
+  const match = { customerName: { $exists: true, $ne: '' }, status: { $ne: 'cancelled' } };
+  if (dateInput && (dateInput.startDate || dateInput.endDate || dateInput.date)) {
+    const { start, end } = getQueryBounds(dateInput);
+    match.createdAt = { $gte: start, $lt: end };
+  }
+
+  const [orderCounts, customerItemAgg] = await Promise.all([
+    Order.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: '$customerName',
+          visits: { $sum: 1 },
+          totalSpent: { $sum: '$total' },
+          lastVisit: { $max: '$createdAt' },
+        },
+      },
+      { $sort: { visits: -1, totalSpent: -1 } },
+      { $limit: 15 },
+    ]),
+    Order.aggregate([
+      { $match: match },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: { customer: '$customerName', item: '$items.name' },
+          qty: { $sum: '$items.quantity' },
+        },
+      },
+      { $sort: { qty: -1 } },
+      {
+        $group: {
+          _id: '$_id.customer',
+          favoriteDish: { $first: '$_id.item' },
+          favoriteQty: { $first: '$qty' },
+        },
+      },
+    ]),
+  ]);
+
+  const favMap = new Map(customerItemAgg.map((f) => [f._id, f]));
+
+  return orderCounts.map((c, idx) => {
+    const fav = favMap.get(c._id);
+    const total = Math.round(c.totalSpent * 100) / 100;
+    const avg = c.visits > 0 ? Math.round((total / c.visits) * 100) / 100 : 0;
+    return {
+      rank: idx + 1,
+      customerName: c._id,
+      visits: c.visits,
+      totalSpent: total,
+      averageOrderValue: avg,
+      favoriteDish: fav?.favoriteDish || 'Assorted Items',
+      favoriteQty: fav?.favoriteQty || 1,
+      lastVisit: c.lastVisit,
+    };
+  });
+}
+
+async function salesGraphsData(dateInput = todayStr()) {
+  const Stock = require('../models/Stock');
+  const { start, end, label } = getQueryBounds(dateInput);
+  const inRange = { createdAt: { $gte: start, $lt: end }, status: { $ne: 'cancelled' } };
+
+  // 1. Daily trend for past 7 days up to end
+  const sevenDaysAgo = new Date(end);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const trendMatch = { createdAt: { $gte: sevenDaysAgo, $lt: end }, status: { $ne: 'cancelled' } };
+
+  const [dailyTrendAgg, categoryAgg, paymentAgg, diningAgg, stocks] = await Promise.all([
+    Order.aggregate([
+      { $match: trendMatch },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: offsetString() } },
+          orders: { $sum: 1 },
+          revenue: { $sum: '$total' },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]),
+    Order.aggregate([
+      { $match: inRange },
+      { $unwind: '$items' },
+      {
+        $lookup: {
+          from: 'menuitems',
+          localField: 'items.menuItem',
+          foreignField: '_id',
+          as: 'menuItemDoc',
+        },
+      },
+      { $unwind: { path: '$menuItemDoc', preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: { $ifNull: ['$menuItemDoc.category', 'General'] },
+          totalQuantity: { $sum: '$items.quantity' },
+          totalRevenue: { $sum: '$items.lineTotal' },
+        },
+      },
+      { $sort: { totalRevenue: -1 } },
+    ]),
+    Order.aggregate([
+      { $match: inRange },
+      { $unwind: '$payments' },
+      {
+        $group: {
+          _id: '$payments.method',
+          totalAmount: { $sum: '$payments.amount' },
+          paymentsCount: { $sum: 1 },
+        },
+      },
+      { $sort: { totalAmount: -1 } },
+    ]),
+    Order.aggregate([
+      { $match: inRange },
+      {
+        $group: {
+          _id: '$type',
+          orders: { $sum: 1 },
+          revenue: { $sum: '$total' },
+        },
+      },
+    ]),
+    Stock.find({}).lean(),
+  ]);
+
+  const totalCatRev = categoryAgg.reduce((sum, c) => sum + c.totalRevenue, 0);
+  const categoryBreakdown = categoryAgg.map((c) => ({
+    category: c._id,
+    quantity: c.totalQuantity,
+    revenue: Math.round(c.totalRevenue * 100) / 100,
+    percentage: totalCatRev > 0 ? Math.round((c.totalRevenue / totalCatRev) * 1000) / 10 : 0,
+  }));
+
+  const totalPayAmt = paymentAgg.reduce((sum, p) => sum + p.totalAmount, 0);
+  const paymentMix = paymentAgg.map((p) => ({
+    method: p._id,
+    amount: Math.round(p.totalAmount * 100) / 100,
+    count: p.paymentsCount,
+    percentage: totalPayAmt > 0 ? Math.round((p.totalAmount / totalPayAmt) * 1000) / 10 : 0,
+  }));
+
+  const totalDiningRev = diningAgg.reduce((sum, d) => sum + d.revenue, 0);
+  const diningSplit = diningAgg.map((d) => ({
+    type: d._id,
+    orders: d.orders,
+    revenue: Math.round(d.revenue * 100) / 100,
+    percentage: totalDiningRev > 0 ? Math.round((d.revenue / totalDiningRev) * 1000) / 10 : 0,
+  }));
+
+  const now = new Date();
+  const alertDate = new Date();
+  alertDate.setDate(alertDate.getDate() + 7);
+
+  let totalValuation = 0;
+  let expiredCount = 0;
+  let expiringSoonCount = 0;
+  let lowStockCount = 0;
+  let healthyCount = 0;
+  let totalWastedLoss = 0;
+
+  for (const s of stocks) {
+    totalValuation += (s.quantity || 0) * (s.costPrice || 0);
+    totalWastedLoss += (s.wastedQuantity || 0) * (s.costPrice || 0);
+    if (s.expiryDate < now) {
+      expiredCount++;
+    } else if (s.expiryDate <= alertDate) {
+      expiringSoonCount++;
+    } else {
+      healthyCount++;
+    }
+    if (s.status === 'low_stock' || (s.quantity || 0) <= (s.minimumQuantity || 5)) {
+      lowStockCount++;
+    }
+  }
+
+  return {
+    date: label,
+    dailyTrends: dailyTrendAgg.map((d) => ({
+      date: d._id,
+      orders: d.orders,
+      revenue: Math.round(d.revenue * 100) / 100,
+    })),
+    categoryBreakdown,
+    paymentMix,
+    diningSplit,
+    orgStockOverview: {
+      totalItems: stocks.length,
+      totalValuation: Math.round(totalValuation * 100) / 100,
+      healthyCount,
+      expiringSoonCount,
+      expiredCount,
+      lowStockCount,
+      totalWastedLoss: Math.round(totalWastedLoss * 100) / 100,
+    },
+  };
+}
+
 module.exports = {
   dailySales,
   salesSummary,
@@ -371,5 +571,7 @@ module.exports = {
   employeePerformance,
   foodItemsRanking,
   stockWastageReport,
+  topCustomers,
+  salesGraphsData,
 };
 

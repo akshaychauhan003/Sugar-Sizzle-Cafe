@@ -25,7 +25,27 @@ router.patch(
   requireAnyRole('admin', 'shift_manager', 'cashier', 'staff'),
   validate({ params: S.idParam, body: S.tableStatus }),
   asyncHandler(async (req, res) => {
-    res.json({ table: await tableService.setStatus(req.params.id, req.body.status) });
+    res.json({ table: await tableService.setStatus(req.params.id, req.body.status, req.user) });
+  }),
+);
+
+// Waitstaff confirms that customer has eaten and left restaurant -> status: 'cleaning'
+router.post(
+  '/:id/customer-left',
+  requireAnyRole('admin', 'shift_manager', 'cashier', 'staff'),
+  validate({ params: S.idParam }),
+  asyncHandler(async (req, res) => {
+    res.json({ table: await tableService.markCustomerLeft(req.params.id, req.user) });
+  }),
+);
+
+// Waitstaff confirms that table is cleaned & sanitized -> status: 'available' (shows to cashier)
+router.post(
+  '/:id/cleaned',
+  requireAnyRole('admin', 'shift_manager', 'cashier', 'staff'),
+  validate({ params: S.idParam }),
+  asyncHandler(async (req, res) => {
+    res.json({ table: await tableService.markCleaned(req.params.id, req.user) });
   }),
 );
 

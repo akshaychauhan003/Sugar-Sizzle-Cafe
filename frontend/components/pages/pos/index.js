@@ -49,6 +49,14 @@ export default function PosPage() {
 
   useEffect(() => {
     loadMenu();
+    // Poll tables every 5s so waitstaff cleaning updates appear live for the cashier
+    const interval = setInterval(async () => {
+      try {
+        const t = await api('/tables');
+        setTables(t.data || []);
+      } catch {}
+    }, 5000);
+    return () => clearInterval(interval);
   }, [loadMenu]);
 
   const cats = useMemo(() => ['All', ...new Set((menu || []).map((m) => m.category))], [menu]);
@@ -121,7 +129,16 @@ export default function PosPage() {
   async function place(sendToKitchen = false) {
     if (busy) return;
     if (!cart.length) return toast('Add at least one item to current order', 'err');
-    if (type === 'dine-in' && !tableId) return toast('Please select a table for dine-in orders', 'err');
+    if (type === 'dine-in') {
+      if (!tableId) return toast('Please select an available table for dine-in orders', 'err');
+      const chosen = tables.find((t) => t.id === tableId);
+      if (!chosen || chosen.status !== 'available') {
+        const msg = chosen?.status === 'cleaning'
+          ? `Table ${chosen.code} has not been cleaned yet. Please wait for waitstaff or choose another table.`
+          : `Table ${chosen?.code || ''} is already booked/occupied by guests. Please choose a clean, available table.`;
+        return toast(msg, 'err');
+      }
+    }
     setBusy(true);
     try {
       const { order } = await api('/orders', {

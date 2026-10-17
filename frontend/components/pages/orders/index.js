@@ -4,10 +4,11 @@ import { api, errMsg } from '@/lib/api';
 import { useAuth, useToast } from '@/components/shared/AuthProvider';
 import { ErrorBox, Spinner } from '@/components/shared/ui';
 import BillModal from '@/components/shared/BillModal';
-import OrderHeaderFilters, { ORDER_COLS } from './OrderHeaderFilters';
+import OrderHeaderFilters, { ORDER_COLS, STAFF_ORDER_COLS } from './OrderHeaderFilters';
 import OrderKanbanBoard from './OrderKanbanBoard';
 import RecordPaymentModal from './RecordPaymentModal';
 import SalesReturnModal from './SalesReturnModal';
+import TableTurnoverStation from './TableTurnoverStation';
 
 export default function OrdersPage() {
   const { user } = useAuth();
@@ -19,12 +20,39 @@ export default function OrdersPage() {
   const [bill, setBill] = useState(null);
   const [pay, setPay] = useState(null);
   const [returnOrder, setReturnOrder] = useState(null);
-  const [colTab, setColTab] = useState('all');
   const [acting, setActing] = useState('');
+  const [tableStats, setTableStats] = useState({ cleaning: 0, occupied: 0, available: 0 });
 
+  const isStaff = user?.role === 'staff';
   const canManage = ['admin', 'shift_manager'].includes(user?.role);
-  const canCashier = ['admin', 'shift_manager', 'cashier', 'staff'].includes(user?.role);
+  const canCashier = ['admin', 'shift_manager', 'cashier'].includes(user?.role);
   const isKitchen = user?.role === 'kitchen';
+
+  const [colTab, setColTab] = useState(isStaff ? 'ready' : 'all');
+
+  useEffect(() => {
+    if (isStaff && !['all', 'ready', 'preparing', 'turnover'].includes(colTab)) {
+      setColTab('ready');
+    }
+  }, [isStaff, colTab]);
+
+  const loadTablesStats = useCallback(async () => {
+    try {
+      const res = await api('/tables');
+      const list = res.data || [];
+      setTableStats({
+        cleaning: list.filter((t) => t.status === 'cleaning').length,
+        occupied: list.filter((t) => t.status === 'occupied').length,
+        available: list.filter((t) => t.status === 'available').length,
+      });
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadTablesStats();
+    const interval = setInterval(loadTablesStats, 6000);
+    return () => clearInterval(interval);
+  }, [loadTablesStats]);
 
   const load = useCallback(async () => {
     const p = new URLSearchParams({ limit: '100' });
@@ -95,6 +123,7 @@ export default function OrdersPage() {
   }
 
   async function openBill(o, reprint) {
+    if (isStaff) return;
     try {
       const { order } = await api(`/orders/${o.id}`);
       if (reprint && order.status === 'completed') {
@@ -111,26 +140,40 @@ export default function OrdersPage() {
     }
   }
 
+  // Filter out pending, delivered, completed orders for waitstaff
+  const displayOrders = useMemo(() => {
+    if (!orders) return null;
+    if (!isStaff) return orders;
+    return orders.filter((o) => ['ready', 'preparing'].includes(o.status));
+  }, [orders, isStaff]);
+
   const grouped = useMemo(() => {
-    const g = Object.fromEntries(ORDER_COLS.map((c) => [c.key, []]));
-    (orders || []).forEach((o) => {
+    const cols = isStaff ? STAFF_ORDER_COLS : ORDER_COLS;
+    const g = Object.fromEntries(cols.map((c) => [c.key, []]));
+    (displayOrders || []).forEach((o) => {
       if (g[o.status]) g[o.status].push(o);
     });
-    g.completed = (g.completed || []).slice(0, 10);
+    if (g.completed) {
+      g.completed = (g.completed || []).slice(0, 10);
+    }
     return g;
-  }, [orders]);
+  }, [displayOrders, isStaff]);
 
   const stats = useMemo(() => {
-    const all = orders || [];
+    const all = displayOrders || [];
     return {
       waiting: grouped.pending?.length || 0,
       ready: grouped.ready?.length || 0,
       delivered: grouped.delivered?.length || 0,
-      live: all.filter((o) => ['pending', 'preparing', 'ready', 'delivered'].includes(o.status)).length,
+      preparing: grouped.preparing?.length || 0,
+      live: isStaff
+        ? (grouped.ready?.length || 0) + (grouped.preparing?.length || 0)
+        : all.filter((o) => ['pending', 'preparing', 'ready', 'delivered'].includes(o.status)).length,
     };
-  }, [orders, grouped]);
+  }, [displayOrders, grouped, isStaff]);
 
-  const visibleCols = colTab === 'all' ? ORDER_COLS : ORDER_COLS.filter((c) => c.key === colTab);
+  const currentCols = isStaff ? STAFF_ORDER_COLS : ORDER_COLS;
+  const visibleCols = colTab === 'all' ? currentCols : currentCols.filter((c) => c.key === colTab);
 
   return (
     <div>
@@ -142,34 +185,39 @@ export default function OrdersPage() {
         colTab={colTab}
         setColTab={setColTab}
         stats={stats}
-        ordersCount={orders?.length || 0}
+        ordersCount={isStaff ? ((grouped.ready?.length || 0) + (grouped.preparing?.length || 0)) : (orders?.length || 0)}
         grouped={grouped}
         onRefresh={load}
+        isStaff={isStaff}
+        tableStats={tableStats}
       />
 
       {err && <ErrorBox message={err} onRetry={load} />}
 
-      {!orders ? (
+      {colTab === 'turnover' ? (
+        <TableTurnoverStation isStaff={isStaff} />
+      ) : !displayOrders ? (
         <Spinner />
       ) : (
         <OrderKanbanBoard
           visibleCols={visibleCols}
           grouped={grouped}
+          isStaff={isStaff}
           acting={acting}
           canCashier={canCashier}
           canManage={canManage}
           isKitchen={isKitchen}
           onMove={move}
           onOpenBill={openBill}
-          onOpenPay={(o) => setPay(o)}
-          onOpenReturn={(o) => setReturnOrder(o)}
+          onOpenPay={(o) => !isStaff && setPay(o)}
+          onOpenReturn={(o) => !isStaff && setReturnOrder(o)}
           onAcceptDelivery={acceptDelivery}
           onDeliver={deliverOrder}
         />
       )}
 
-      {bill && <BillModal order={bill} onClose={() => setBill(null)} />}
-      {pay && (
+      {bill && !isStaff && <BillModal order={bill} onClose={() => setBill(null)} />}
+      {pay && !isStaff && (
         <RecordPaymentModal
           order={pay}
           onClose={() => setPay(null)}
@@ -179,7 +227,7 @@ export default function OrdersPage() {
           }}
         />
       )}
-      {returnOrder && (
+      {returnOrder && !isStaff && (
         <SalesReturnModal
           order={returnOrder}
           onClose={() => setReturnOrder(null)}

@@ -36,17 +36,38 @@ async function createTicketForOrder(order, { kitchenNotes } = {}) {
   });
 }
 
-async function listActive() {
-  const since = new Date(Date.now() - 12 * 3600000);
-  return KitchenTicket.find({
-    $or: [
-      { status: { $in: ['pending', 'in_progress'] } },
-      { status: 'ready', readyAt: { $gte: since } },
-    ],
-  })
+async function listActive(includeReady = false) {
+  const query = includeReady
+    ? {
+        $or: [
+          { status: { $in: ['pending', 'in_progress'] } },
+          { status: 'ready', readyAt: { $gte: new Date(Date.now() - 12 * 3600000) } },
+        ],
+      }
+    : { status: { $in: ['pending', 'in_progress'] } };
+
+  return KitchenTicket.find(query)
     .sort({ createdAt: 1 })
-    .populate('order', 'orderNumber type tableNumber status')
+    .populate('order', 'orderNumber type tableNumber status customerName')
     .populate('assignedTo', 'name role');
+}
+
+async function startCooking(ticketId, user) {
+  const ticket = await KitchenTicket.findById(ticketId);
+  if (!ticket) throw notFound('Kitchen ticket not found');
+  ticket.items.forEach((i) => {
+    if (i.prepStatus === 'pending') i.prepStatus = 'preparing';
+  });
+  ticket.status = 'in_progress';
+  if (user && !ticket.assignedTo) ticket.assignedTo = user._id;
+  await ticket.save();
+
+  const order = await Order.findById(ticket.order);
+  if (order && order.status === 'pending') {
+    const orderService = require('./orderService');
+    await orderService.updateStatus(order._id, 'preparing', user, 'Chef started cooking');
+  }
+  return ticket;
 }
 
 async function addNotes(ticketId, kitchenNotes, user) {
@@ -127,5 +148,5 @@ async function markTicketReadyForOrder(orderId) {
 }
 
 module.exports = {
-  createTicketForOrder, listActive, updateItemStatus, markReady, markTicketReadyForOrder, addNotes, nextTicketNumber,
+  createTicketForOrder, listActive, updateItemStatus, markReady, markTicketReadyForOrder, addNotes, nextTicketNumber, startCooking,
 };

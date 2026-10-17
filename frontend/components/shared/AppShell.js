@@ -1,16 +1,17 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth, useToast } from './AuthProvider';
 import { Spinner } from './ui';
 import { api, ROLE_LABELS, ROLE_ICONS, errMsg } from '@/lib/api';
 import ChangePasswordModal from './ChangePasswordModal';
+import RoleSwitcher from './RoleSwitcher';
 
 const ALL_NAV = [
-  { href: '/pos', label: 'POS Register', icon: '🧾', roles: ['admin', 'shift_manager', 'cashier'] },
-  { href: '/orders', label: 'Orders & Service', icon: '📋', roles: ['admin', 'shift_manager', 'cashier', 'staff', 'kitchen'] },
-  { href: '/kitchen', label: 'Kitchen & Stocks', icon: '🍳', roles: ['admin', 'shift_manager', 'kitchen'] },
+  { href: '/pos', label: 'POS Register', icon: '🧾', roles: ['shift_manager', 'cashier'] },
+  { href: '/orders', label: 'Orders & Service', icon: '📋', roles: ['shift_manager', 'cashier', 'staff'] },
+  { href: '/kitchen', label: 'Kitchen & Stocks', icon: '🍳', roles: ['kitchen'] },
   { href: '/menu', label: 'Menu & Stock Hub', icon: '🍽️', roles: ['admin', 'shift_manager'] },
   { href: '/reports', label: 'Reports & Analytics', icon: '📊', roles: ['admin', 'shift_manager'] },
 ];
@@ -20,6 +21,7 @@ export default function AppShell({ children }) {
   const toast = useToast();
   const router = useRouter();
   const path = usePathname();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const [clock, setClock] = useState('');
   const [liveOrdersCount, setLiveOrdersCount] = useState(0);
@@ -44,9 +46,10 @@ export default function AppShell({ children }) {
     const fetchActiveCount = () => {
       api('/orders?limit=100')
         .then((res) => {
-          const active = (res.data || []).filter((o) =>
-            ['pending', 'preparing', 'ready'].includes(o.status),
-          ).length;
+          const active = (res.data || []).filter((o) => {
+            if (user?.role === 'staff') return ['ready', 'preparing'].includes(o.status);
+            return ['pending', 'preparing', 'ready'].includes(o.status);
+          }).length;
           setLiveOrdersCount(active);
         })
         .catch(() => {});
@@ -62,7 +65,9 @@ export default function AppShell({ children }) {
 
   useEffect(() => {
     if (!loading && user) {
-      if (user.role === 'kitchen' && (path === '/pos' || path === '/menu' || path === '/reports' || path === '/')) {
+      if (user.role === 'admin' && path === '/') {
+        router.replace('/reports');
+      } else if (user.role === 'kitchen' && (path === '/pos' || path === '/menu' || path === '/reports' || path === '/')) {
         router.replace('/kitchen');
       } else if (user.role === 'staff' && (path === '/pos' || path === '/menu' || path === '/reports' || path === '/kitchen' || path === '/')) {
         router.replace('/orders');
@@ -81,9 +86,39 @@ export default function AppShell({ children }) {
     ? ['admin', 'cashier', 'kitchen', 'staff']
     : [...new Set(userRoles)];
 
-  const navItems = ALL_NAV.filter((n) => !n.roles || n.roles.includes(user.role));
+  let navItems = [];
+  if (user.role === 'admin') {
+    navItems = [
+      { href: '/reports', label: 'Executive Analytics', icon: '📊' },
+      { href: '/menu?tab=menu', label: 'Dishes & Pricing', icon: '🍽️' },
+      { href: '/menu?tab=stocks', label: 'Stock & Expiry Hub', icon: '📦' },
+      { href: '/menu?tab=users', label: 'Users & Roles', icon: '👥' },
+    ];
+  } else if (user.role === 'cashier') {
+    navItems = [
+      { href: '/pos', label: 'POS Register', icon: '🧾' },
+      { href: '/orders', label: 'Orders & Receipts', icon: '📋' },
+    ];
+  } else if (user.role === 'kitchen') {
+    navItems = [
+      { href: '/kitchen', label: 'Kitchen & Stocks', icon: '🍳' },
+    ];
+  } else if (user.role === 'staff') {
+    navItems = [
+      { href: '/orders', label: 'Table Delivery Queue', icon: '🚚' },
+    ];
+  } else {
+    navItems = ALL_NAV.filter((n) => !n.roles || n.roles.includes(user.role));
+  }
+
   const active = (href) => {
-    if (href === '/pos') return path === '/pos' || path === '/';
+    if (href.includes('?tab=')) {
+      const [targetPath, query] = href.split('?');
+      const targetTab = new URLSearchParams(query).get('tab');
+      const currentTab = searchParams?.get('tab') || 'menu';
+      return path === targetPath && currentTab === targetTab;
+    }
+    if (href === '/pos') return path === '/pos';
     return path === href || path.startsWith(`${href}/`);
   };
 
@@ -122,28 +157,11 @@ export default function AppShell({ children }) {
           {selectableRoles.length > 1 && (
             <div className="side-role-switch">
               <span className="side-role-label">Active Role:</span>
-              <select
-                className="role-switch-dropdown"
-                value={user.role}
-                onChange={async (e) => {
-                  const newRole = e.target.value;
-                  try {
-                    await switchRole(newRole);
-                    toast(`Active role changed to ${ROLE_LABELS[newRole] || newRole}`);
-                    if (newRole === 'kitchen') router.push('/kitchen');
-                    else if (newRole === 'cashier') router.push('/pos');
-                    else if (newRole === 'staff') router.push('/orders');
-                  } catch (err) {
-                    toast(errMsg(err), 'err');
-                  }
-                }}
-              >
-                {selectableRoles.map((r) => (
-                  <option key={r} value={r}>
-                    {ROLE_ICONS[r] || '👤'} {ROLE_LABELS[r] || r}
-                  </option>
-                ))}
-              </select>
+              <RoleSwitcher
+                selectableRoles={selectableRoles}
+                currentRole={user.role}
+                variant="sidebar"
+              />
             </div>
           )}
           <div className="side-user-actions">
@@ -220,9 +238,9 @@ export default function AppShell({ children }) {
               <span>{clock}</span>
             </div>
 
-            <Link href="/orders" className="pill orders-pill" title="View active orders in queue">
+            <Link href="/orders" className="pill orders-pill" title="View active delivery queue">
               <span className="pulse-dot" />
-              <span>{liveOrdersCount} Active {liveOrdersCount === 1 ? 'Order' : 'Orders'}</span>
+              <span>{liveOrdersCount} {user?.role === 'staff' ? 'For Delivery' : `Active ${liveOrdersCount === 1 ? 'Order' : 'Orders'}`}</span>
             </Link>
           </div>
 
@@ -242,30 +260,12 @@ export default function AppShell({ children }) {
 
           {/* Multi-role Switcher if user has > 1 role or is admin */}
           {selectableRoles.length > 1 && (
-            <div className="role-switch-wrapper desktop-only" title="Switch your active working role">
-              <span className="role-switch-label">Switch:</span>
-              <select
-                className="role-switch-dropdown"
-                value={user.role}
-                onChange={async (e) => {
-                  const newRole = e.target.value;
-                  try {
-                    await switchRole(newRole);
-                    toast(`Active role changed to ${ROLE_LABELS[newRole] || newRole}`);
-                    if (newRole === 'kitchen') router.push('/kitchen');
-                    else if (newRole === 'cashier') router.push('/pos');
-                    else if (newRole === 'staff') router.push('/orders');
-                  } catch (err) {
-                    toast(errMsg(err), 'err');
-                  }
-                }}
-              >
-                {selectableRoles.map((r) => (
-                  <option key={r} value={r}>
-                    {ROLE_ICONS[r] || '👤'} {ROLE_LABELS[r] || r}
-                  </option>
-                ))}
-              </select>
+            <div className="desktop-only">
+              <RoleSwitcher
+                selectableRoles={selectableRoles}
+                currentRole={user.role}
+                variant="navbar"
+              />
             </div>
           )}
 
