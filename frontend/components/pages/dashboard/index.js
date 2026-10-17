@@ -11,6 +11,8 @@ import ShiftReconciliation from './ShiftReconciliation';
 import RecentOrdersTable from './RecentOrdersTable';
 import AuditLogTable from './AuditLogTable';
 import ExportCsvModal from './ExportCsvModal';
+import EmployeePerformanceLeaderboard from './EmployeePerformanceLeaderboard';
+import FoodRankingCard from './FoodRankingCard';
 
 const getTodayStr = () => new Date().toISOString().slice(0, 10);
 const getPrevDayStr = (daysAgo) => {
@@ -236,6 +238,13 @@ export default function DashboardPage() {
         )}
         <button
           type="button"
+          className={`dash-sec-tab ${activeSection === 'performance' ? 'active' : ''}`}
+          onClick={() => setActiveSection('performance')}
+        >
+          👥 Employee Performance
+        </button>
+        <button
+          type="button"
           className={`dash-sec-tab ${activeSection === 'orders' ? 'active' : ''}`}
           onClick={() => setActiveSection('orders')}
         >
@@ -270,58 +279,7 @@ export default function DashboardPage() {
           <div className={`dash-section-pane ${activeSection === 'overview' || activeSection === 'all' ? 'visible' : 'hidden'}`}>
             <SalesMetricsCards report={r} />
 
-            {r.topItems && r.topItems.length > 0 && (
-              <div className="card top-items-card" style={{ marginBottom: '16px', borderLeft: '4px solid #f59e0b' }}>
-                <div className="row between wrap" style={{ alignItems: 'center', marginBottom: '10px' }}>
-                  <div>
-                    <h3 style={{ margin: 0 }}>🏆 Highest Sold Food Items Ranking</h3>
-                    <p className="muted small" style={{ margin: '2px 0 0' }}>
-                      Ranked by total quantity ordered and revenue generated
-                    </p>
-                  </div>
-                  <span className="badge st-completed">#1 Top Seller: {r.topItems[0].name}</span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
-                  {r.topItems.map((item, idx) => (
-                    <div
-                      key={item.name}
-                      style={{
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        border: idx === 0 ? '1.5px solid #f59e0b' : '1px solid var(--border-light)',
-                        background: idx === 0 ? '#fffdf0' : 'var(--surface)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        boxShadow: idx === 0 ? '0 2px 6px rgba(217, 119, 6, 0.15)' : 'none',
-                      }}
-                    >
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span
-                            style={{
-                              fontWeight: 800,
-                              color: idx === 0 ? '#b45309' : 'var(--muted)',
-                              fontSize: '0.84rem',
-                              background: idx === 0 ? '#fef3c7' : 'rgba(0,0,0,0.04)',
-                              padding: '1px 6px',
-                              borderRadius: '4px',
-                            }}
-                          >
-                            #{idx + 1}
-                          </span>
-                          <b style={{ color: 'var(--espresso)', fontSize: '0.88rem' }}>{item.name}</b>
-                        </div>
-                        <span className="small muted">{item.quantity} orders placed</span>
-                      </div>
-                      <b style={{ color: idx === 0 ? '#b45309' : 'var(--ink)', fontSize: '0.94rem' }}>
-                        {money(item.revenue)}
-                      </b>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <FoodRankingCard date={date} startDate={startDate} endDate={endDate} />
 
             <div className="two">
               <div className="card">
@@ -358,6 +316,11 @@ export default function DashboardPage() {
               />
             </div>
           )}
+
+          {/* Section: Employee Performance Leaderboard */}
+          <div className={`dash-section-pane ${activeSection === 'performance' || activeSection === 'all' ? 'visible' : 'hidden'}`}>
+            <EmployeePerformanceLeaderboard date={date} startDate={startDate} endDate={endDate} />
+          </div>
 
           {/* Section 3: Recent Orders Table */}
           <div className={`dash-section-pane ${activeSection === 'orders' || activeSection === 'all' ? 'visible' : 'hidden'}`}>
