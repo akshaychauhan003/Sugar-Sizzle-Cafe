@@ -16,21 +16,21 @@ npm run setup
 
 This single command will:
 1. Verify Node.js and local MongoDB Community service.
-2. Initialize environment files (`server/.env` with `PORT=5001` and `web/.env.local`).
+2. Initialize environment files (`backend/.env` with `PORT=5001` and `frontend/.env.local`).
 3. Install all dependencies for both backend and frontend.
 4. Seed the database with demo users, café menu items, vibe tables, active shifts, and 38 orders.
-5. Execute the test suite (42 unit and integration tests).
+5. Execute the test suite (57 unit and integration tests).
 
 ---
 
 ## 🚀 Running the Project
 
 ```bash
-# Start both Backend API (:5001) and Next.js Web POS (:3000) simultaneously
+# Start both Backend API (:5001) and Next.js Frontend POS (:3000) simultaneously
 npm run dev
 ```
 
-* **Web POS & Workstation**: [http://localhost:3000](http://localhost:3000)
+* **Frontend POS & Workstation**: [http://localhost:3000](http://localhost:3000)
 * **Backend API Health**: [http://localhost:5001/api/health](http://localhost:5001/api/health)
 * **Interactive API Documentation**: [http://localhost:5001/api/docs](http://localhost:5001/api/docs)
 
@@ -39,11 +39,13 @@ npm run dev
 | Command | Action |
 |---|---|
 | `npm run dev` | Launch both backend API and frontend POS concurrently |
-| `npm run dev:server` | Start backend API only (`localhost:5001`) |
-| `npm run dev:web` | Start frontend Next.js dev server only (`localhost:3000`) |
+| `npm run dev:backend` | Start backend API only (`localhost:5001`) |
+| `npm run dev:frontend` | Start frontend Next.js dev server only (`localhost:3000`) |
 | `npm run seed` | Re-seed database with demo users, catalog, shifts & orders |
-| `npm test` | Run complete backend test suite (unit + integration) |
+| `npm run seed:database` | Direct execution of database seed script from `database/` |
+| `npm test` | Run complete backend test suite (unit + integration, 57 tests) |
 | `npm run build` | Validate & compile Next.js production build bundle |
+| `npm run lint` | Run code quality checks across frontend and backend |
 
 ---
 
@@ -61,43 +63,47 @@ npm run dev
 
 ---
 
-## 📁 Page-Based Project Architecture
+## 📁 Professional Project Architecture
 
 ```
 restoflow-task1/
-├── server/                      # Node.js + Express + MongoDB REST API
+├── frontend/                    # Next.js 14 Client POS & KDS Workstation
+│   ├── app/                     # Next.js App Router (POS, orders, kitchen, menu, reports)
+│   ├── components/              # Modular UI components
+│   │   ├── pages/               # Page-specific components (pos, orders, kitchen, menu, dashboard)
+│   │   └── shared/              # Reusable shared components (AppShell, BillModal, ui)
+│   ├── lib/                     # API client, token store, currency formatters
+│   └── public/                  # Favicons, PWA icons, manifest & brand assets
+│
+├── backend/                     # Node.js + Express REST API Engine
+│   ├── api/                     # Vercel serverless function entrypoint
+│   ├── docs/                    # OpenAPI 3.0 YAML spec & Postman collection
 │   ├── src/
-│   │   ├── models/              # Order, MenuItem, Table, Shift, Payment, User, Counter
-│   │   ├── routes/              # orders, menu, tables, kitchen, shifts, reports, auth
-│   │   ├── services/            # orderService, billing, orderStatus, tableService, kitchenService
-│   │   └── server.js            # Express entrypoint (Port 5001)
-│   └── tests/                   # 42 unit and integration tests (Jest + Supertest)
+│   │   ├── config/              # Environment & application configuration
+│   │   ├── db/                  # MongoDB connection management
+│   │   ├── middleware/          # JWT Auth, error handler, Zod validator
+│   │   ├── models/              # 14 Mongoose data schemas (Order, Menu, Stock, Shift, etc.)
+│   │   ├── routes/              # Express API routers (orders, menu, kitchen, shifts, reports)
+│   │   └── services/            # Business logic (billing, order state engine, tableService)
+│   └── tests/                   # 57 unit and integration tests (Jest + Supertest)
 │
-├── web/                         # Next.js 14 Web POS Application
-│   ├── app/
-│   │   ├── (app)/
-│   │   │   ├── page.js          # Direct POS Register (/)
-│   │   │   ├── pos/page.js      # Direct POS Register (/pos)
-│   │   │   ├── orders/page.js   # Live Order Stream (/orders)
-│   │   │   ├── kitchen/page.js  # Kitchen Display System (/kitchen)
-│   │   │   ├── menu/page.js     # The Menu Vault (/menu)
-│   │   │   └── reports/page.js  # Daily Sales & Shifts (/reports)
-│   │   ├── login/page.js        # Terminal Sign In (/login)
-│   │   ├── globals.css          # Sugar & Sizzle color & aesthetic token system
-│   │   └── layout.js           # Google Fonts (Plus Jakarta Sans + Outfit)
-│   └── components/
-│       ├── pages/
-│       │   ├── pos/             # MenuFilterBar, MenuItemGrid, CartDrawer, OrderTypeSelector, OrderSummaryFooter
-│       │   ├── orders/          # OrderKanbanBoard, OrderCard, OrderHeaderFilters, RecordPaymentModal
-│       │   ├── kitchen/         # KitchenBoard, KitchenTicketCard
-│       │   ├── menu/            # MenuTable, MenuItemModal, MenuFilterBar, MenuStatsCards
-│       │   ├── dashboard/       # SalesMetricsCards, HourlyRevenueChart, CollectionsMix, ShiftReconciliation
-│       │   └── login/           # LoginForm, DemoAccountsBadge
-│       └── shared/              # AppShell, AuthProvider, BillModal, ui
+├── database/                    # MongoDB Schemas, Seeds, Docker & Migration
+│   ├── seeds/
+│   │   ├── demoData.js          # Raw data fixtures (Users, Menu items, Coupons, Tables)
+│   │   └── seed.js              # Master database seeding script
+│   ├── init/
+│   │   └── 01-init-mongo.js     # Mongo shell initialization script (collections & indexes)
+│   ├── docker-compose.yml       # Local MongoDB 7.0 + Mongo Express web admin UI
+│   └── README.md                # Detailed schema documentation & operational guide
 │
-├── scripts/
+├── docs/                        # Project Documentation
+│   ├── DEPLOYMENT_GUIDE.md      # Full live deployment guide (Vercel, Render, MongoDB Atlas)
+│   ├── ARCHITECTURE.md          # Multi-tier system architecture overview
+│   └── API_SPECIFICATION.md     # OpenAPI & Postman specifications
+│
+├── scripts/                     # Automation & DevOps Scripts
 │   ├── setup.sh                 # Complete automated environment setup script
-│   └── start.sh                 # Dual-service concurrent runner with graceful shutdown
+│   └── start.sh                 # Dual-service concurrent runner with graceful port release
 └── package.json                 # Monorepo management scripts
 ```
 

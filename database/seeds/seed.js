@@ -1,65 +1,76 @@
 /**
- * Demo seed — WIPE + reseed (idempotent only in the sense of a full reset).
- * Clears Users, MenuItems, Orders, Counters, Settings, Categories, Tables,
- * Coupons, KitchenTickets, Payments, Invoices, Shifts, AuditLogs then inserts demo data.
- * Refuses to run in production unless SEED_ALLOW_PRODUCTION=true.
+ * Master Database Seed Script — Sugar & Sizzle (RestoFlow POS)
+ * Resets collections and seeds sample data:
+ * - Admin, Staff, Shift Manager, Cashier, Kitchen accounts
+ * - Categories & Menu Items with ingredient stock links
+ * - Stock inventory with shelf-life and batch tracking
+ * - 12 cafe tables across Indoor Main and Outdoor Patio
+ * - Discount coupons (WELCOME10, FLAT50)
+ * - 3 days of realistic orders, kitchen tickets, invoices, and shift audits
  */
+const path = require('path');
+
+// Ensure modules can be resolved from backend/node_modules
+const backendNodeModules = path.resolve(__dirname, '../../backend/node_modules');
+if (!module.paths.includes(backendNodeModules)) {
+  module.paths.push(backendNodeModules);
+}
+
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const env = require('../config/env');
-const User = require('../models/User');
-const MenuItem = require('../models/MenuItem');
-const Order = require('../models/Order');
-const Setting = require('../models/Setting');
-const Counter = require('../models/Counter');
-const Category = require('../models/Category');
-const Table = require('../models/Table');
-const Coupon = require('../models/Coupon');
-const KitchenTicket = require('../models/KitchenTicket');
-const Payment = require('../models/Payment');
-const Invoice = require('../models/Invoice');
-const Shift = require('../models/Shift');
-const AuditLog = require('../models/AuditLog');
-const Stock = require('../models/Stock');
-const { computeBill } = require('../services/billing');
-const { todayStr } = require('../lib/dates');
 
-const DEMO_USERS = [
-  { name: 'Sarah Jenkins', email: 'admin@restoflow.test', password: 'Admin@12345', role: 'admin', roles: ['admin', 'cashier', 'kitchen', 'staff'] },
-  { name: 'Sam Carter', email: 'staff@restoflow.test', password: 'Staff@12345', role: 'staff', roles: ['staff'] },
-  { name: 'Mia Lopez', email: 'manager@restoflow.test', password: 'Manager@12345', role: 'shift_manager', roles: ['shift_manager', 'cashier', 'staff'] },
-  { name: 'Chris Patel', email: 'cashier@restoflow.test', password: 'Cashier@12345', role: 'cashier', roles: ['cashier'] },
-  { name: 'Jordan Lee', email: 'kitchen@restoflow.test', password: 'Kitchen@12345', role: 'kitchen', roles: ['kitchen'] },
-];
+// Load environment variables from backend/.env if available
+require('dotenv').config({ path: path.resolve(__dirname, '../../backend/.env') });
 
-const MENU = [
-  ['Classic Margherita Pizza', 'PIZ-0102', 'Pizzas', 18.5, 8, 'San Marzano tomato base, fresh buffalo mozzarella, fragrant basil', 6.5, 'Dough, sauce, mozzarella, basil'],
-  ['Truffle Wagyu Burger', 'BUR-0044', 'Main Course', 24, 14, '200g prime Wagyu chuck, black truffle emulsion, smoked cheddar', 11, 'Bun, wagyu, truffle aioli, cheddar'],
-  ['Crispy Calamari Fritti', 'APP-0012', 'Appetizers', 15, 6, 'Flash-fried Monterey squid, cracked sea salt, charred Meyer lemon', 5, 'Calamari, flour, lemon'],
-  ['Cold Brew Tonic', 'BEV-0081', 'Beverages', 7, 3, 'Single-origin Ethiopian cold extraction with tonic', 1.5, 'Cold brew, tonic'],
-  ['Traditional Venetian Tiramisu', 'DES-0019', 'Desserts', 11, 2, 'House-baked ladyfingers soaked in dark espresso and Marsala', 3.5, 'Mascarpone, espresso, cocoa'],
-  ['Wild Mushroom & Truffle Risotto', 'RIS-0032', 'Main Course', 26, 16, 'Acquerello carnaroli rice, foraged chanterelles', 9, 'Rice, mushrooms, stock, truffle'],
-  ['Crispy Truffle Fries', 'APP-0020', 'Starters', 7.5, 6, 'Parmesan & herb dust', 2, 'Potatoes, truffle oil, parmesan'],
-  ['Smoked Chicken Wings', 'APP-0021', 'Starters', 9.2, 10, 'Glazed barbecue & dip', 3.2, 'Wings, BBQ glaze'],
-  ['Molten Dark Choco Lava', 'DES-0022', 'Desserts', 6.5, 12, 'Vanilla bean quenelle', 2.1, 'Chocolate, butter, eggs'],
-  ['Sparkling Yuzu Cooler', 'BEV-0023', 'Beverages', 4.5, 2, 'Japanese citrus & tonic', 0.9, 'Yuzu, tonic'],
-  ['Mango Lychee Fizz', 'BEV-0024', 'Beverages', 5, 2, 'Crushed ice & fresh fruit', 1.1, 'Mango, lychee, soda'],
-  ['Pan-Seared Sea Bass', 'MAI-0025', 'Main Course', 18, 15, 'Asparagus & lemon', 7.5, 'Sea bass, asparagus, lemon'],
-];
+const env = require('../../backend/src/config/env');
+const User = require('../../backend/src/models/User');
+const MenuItem = require('../../backend/src/models/MenuItem');
+const Order = require('../../backend/src/models/Order');
+const Setting = require('../../backend/src/models/Setting');
+const Counter = require('../../backend/src/models/Counter');
+const Category = require('../../backend/src/models/Category');
+const Table = require('../../backend/src/models/Table');
+const Coupon = require('../../backend/src/models/Coupon');
+const KitchenTicket = require('../../backend/src/models/KitchenTicket');
+const Payment = require('../../backend/src/models/Payment');
+const Invoice = require('../../backend/src/models/Invoice');
+const Shift = require('../../backend/src/models/Shift');
+const AuditLog = require('../../backend/src/models/AuditLog');
+const Stock = require('../../backend/src/models/Stock');
+const { computeBill } = require('../../backend/src/services/billing');
+const { todayStr } = require('../../backend/src/lib/dates');
+const { DEMO_USERS, MENU, COUPONS } = require('./demoData');
 
-(async () => {
+async function runSeed() {
   if (env.isProd && process.env.SEED_ALLOW_PRODUCTION !== 'true') {
-    console.error('Refusing to seed in production (set SEED_ALLOW_PRODUCTION=true to override).'); process.exit(1);
+    console.error('❌ Refusing to seed in production (set SEED_ALLOW_PRODUCTION=true to override).');
+    process.exit(1);
   }
-  env.validate();
-  await mongoose.connect(env.mongoUri);
 
+  env.validate();
+  const mongoUri = env.mongoUri || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/restoflow';
+  console.log(`🌱 Connecting to database at: ${mongoUri.replace(/:\/\/[^:]+:[^@]+@/, '://<credentials>@')}`);
+  await mongoose.connect(mongoUri);
+
+  console.log('🧹 Purging existing collections...');
   await Promise.all([
-    User.deleteMany({}), MenuItem.deleteMany({}), Order.deleteMany({}), Counter.deleteMany({}), Setting.deleteMany({}),
-    Category.deleteMany({}), Table.deleteMany({}), Coupon.deleteMany({}), KitchenTicket.deleteMany({}),
-    Payment.deleteMany({}), Invoice.deleteMany({}), Shift.deleteMany({}), AuditLog.deleteMany({}), Stock.deleteMany({}),
+    User.deleteMany({}),
+    MenuItem.deleteMany({}),
+    Order.deleteMany({}),
+    Counter.deleteMany({}),
+    Setting.deleteMany({}),
+    Category.deleteMany({}),
+    Table.deleteMany({}),
+    Coupon.deleteMany({}),
+    KitchenTicket.deleteMany({}),
+    Payment.deleteMany({}),
+    Invoice.deleteMany({}),
+    Shift.deleteMany({}),
+    AuditLog.deleteMany({}),
+    Stock.deleteMany({}),
   ]);
 
+  console.log('👤 Seeding demo users...');
   const users = [];
   for (const u of DEMO_USERS) {
     users.push(await User.create({
@@ -72,15 +83,20 @@ const MENU = [
   }
   const byRole = Object.fromEntries(users.map((u) => [u.role, u]));
 
+  console.log('🏷️  Seeding menu categories...');
   const categoryNames = [...new Set(MENU.map((m) => m[2]))];
   const categories = await Category.insertMany(categoryNames.map((name, i) => ({
-    name, description: `${name} menu section`, displayOrder: i + 1, isActive: true,
+    name,
+    description: `${name} menu section`,
+    displayOrder: i + 1,
+    isActive: true,
   })));
   const catByName = Object.fromEntries(categories.map((c) => [c.name, c]));
 
   const now = new Date();
   const inDays = (d) => new Date(now.getTime() + d * 86400000);
 
+  console.log('📦 Seeding stock inventory...');
   const stockDocs = await Stock.insertMany([
     {
       itemName: 'Buffalo Mozzarella Cheese', category: 'Dairy', quantity: 12, unit: 'kg', costPrice: 420,
@@ -136,6 +152,7 @@ const MENU = [
 
   const stockByName = Object.fromEntries(stockDocs.map((s) => [s.itemName, s]));
 
+  console.log('🍕 Seeding menu catalog with recipe links...');
   const items = await MenuItem.insertMany(MENU.map(([name, sku, category, price, prepTimeMin, description, cost, recipe]) => {
     let recipeItems = [];
     if (sku === 'PIZ-0102') {
@@ -175,6 +192,7 @@ const MENU = [
     };
   }));
 
+  console.log('⚙️  Seeding settings, tables & coupons...');
   await Setting.create({ key: 'taxRate', value: 5 });
 
   const tables = await Table.insertMany(Array.from({ length: 12 }, (_, i) => ({
@@ -185,22 +203,16 @@ const MENU = [
     status: 'available',
   })));
 
-  await Coupon.insertMany([
-    {
-      code: 'WELCOME10', description: '10% off first orders', discountType: 'percent', discountValue: 10,
-      minOrderAmount: 20, maxUses: 100, usedCount: 0, isActive: true,
-    },
-    {
-      code: 'FLAT50', description: 'Flat 50 off', discountType: 'flat', discountValue: 50,
-      minOrderAmount: 150, maxUses: 50, usedCount: 0, isActive: true,
-    },
-  ]);
+  await Coupon.insertMany(COUPONS);
 
+  console.log('🧾 Generating 38 realistic orders across 3 days...');
   const sellable = items.filter((i) => i.isAvailable);
-  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const states = ['completed', 'completed', 'completed', 'ready', 'preparing', 'pending', 'cancelled'];
   const methods = ['cash', 'upi', 'card'];
-  const day = todayStr(); const counters = {};
+  const day = todayStr();
+  const counters = {};
   let n = 0;
   let ticketSeq = 0;
   let paySeq = 0;
@@ -222,7 +234,8 @@ const MENU = [
       const status = back > 0 && ['ready', 'preparing', 'pending'].includes(states[k % 7]) ? 'completed' : states[k % 7];
       const paid = status === 'completed' || (status === 'ready' && rnd() < 0.5);
       const key = when.toISOString().slice(0, 10).replace(/-/g, '');
-      counters[key] = (counters[key] || 0) + 1; n++;
+      counters[key] = (counters[key] || 0) + 1;
+      n++;
       const method = methods[Math.floor(rnd() * 3)];
       const type = rnd() < 0.65 ? 'dine-in' : 'takeaway';
       const table = type === 'dine-in' ? tables[Math.floor(rnd() * tables.length)] : null;
@@ -244,7 +257,10 @@ const MENU = [
         stamps.deliveredBy = byRole.staff._id;
         stamps.deliveredAt = when;
       }
-      if (status === 'completed') { stamps.servedAt = when; stamps.completedAt = when; }
+      if (status === 'completed') {
+        stamps.servedAt = when;
+        stamps.completedAt = when;
+      }
 
       const orderCreator = [byRole.cashier._id, byRole.shift_manager._id, byRole.cashier._id, byRole.staff._id][k % 4];
 
@@ -339,6 +355,7 @@ const MENU = [
     }
   }
 
+  console.log('⏰ Initializing active register shift...');
   const shiftDay = day.replace(/-/g, '');
   const cashTotals = openShiftOrders.reduce((acc, o) => {
     for (const p of o.payments || []) acc[p.method] = (acc[p.method] || 0) + p.amount;
@@ -369,7 +386,6 @@ const MENU = [
     { user: byRole.kitchen._id, action: 'kitchen.ready', entityType: 'KitchenTicket', summary: 'Sample kitchen audit' },
   ]);
 
-  // Align counters so live creates continue cleanly for today
   const todayKey = day.replace(/-/g, '');
   await Counter.create([
     { _id: `order-${day}`, seq: counters[todayKey] || 0 },
@@ -379,13 +395,30 @@ const MENU = [
     { _id: `shift-${day}`, seq: 1 },
   ]);
 
-  console.log(`Seeded ${users.length} users, ${categories.length} categories, ${items.length} menu items, ${tables.length} tables, ${n} orders (${day}).`);
-  console.log('Demo logins:');
-  console.log('  admin@restoflow.test / Admin@12345');
-  console.log('  staff@restoflow.test / Staff@12345');
-  console.log('  manager@restoflow.test / Manager@12345');
-  console.log('  cashier@restoflow.test / Cashier@12345');
-  console.log('  kitchen@restoflow.test / Kitchen@12345');
-  console.log('Coupons: WELCOME10, FLAT50');
+  console.log('✅ Seeding completed successfully!');
+  console.log(`   - Users:        ${users.length}`);
+  console.log(`   - Categories:   ${categories.length}`);
+  console.log(`   - Menu Items:   ${items.length}`);
+  console.log(`   - Stock Items:  ${stockDocs.length}`);
+  console.log(`   - Tables:       ${tables.length}`);
+  console.log(`   - Total Orders: ${n}`);
+  console.log('');
+  console.log('🔑 Credentials:');
+  console.log('   👑 Admin:   admin@restoflow.test   / Admin@12345');
+  console.log('   🧾 Staff:   staff@restoflow.test   / Staff@12345');
+  console.log('   👔 Manager: manager@restoflow.test / Manager@12345');
+  console.log('   💵 Cashier: cashier@restoflow.test / Cashier@12345');
+  console.log('   🍳 Kitchen: kitchen@restoflow.test / Kitchen@12345');
+  console.log('   🎟️ Coupons: WELCOME10, FLAT50');
+
   await mongoose.disconnect();
-})().catch((e) => { console.error(e); process.exit(1); });
+}
+
+if (require.main === module) {
+  runSeed().catch((e) => {
+    console.error('❌ Seeding failed:', e);
+    process.exit(1);
+  });
+}
+
+module.exports = { runSeed };

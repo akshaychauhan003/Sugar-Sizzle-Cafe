@@ -23,44 +23,44 @@ if command -v brew >/dev/null 2>&1; then
 fi
 
 # 3. Environment files
-if [ ! -f "$ROOT_DIR/server/.env" ]; then
-  echo "📝 Creating server/.env from template..."
-  cp "$ROOT_DIR/server/.env.example" "$ROOT_DIR/server/.env"
+if [ ! -f "$ROOT_DIR/backend/.env" ]; then
+  echo "📝 Creating backend/.env from template..."
+  cp "$ROOT_DIR/backend/.env.example" "$ROOT_DIR/backend/.env"
   # Ensure PORT=5001 on macOS
-  sed -i '' 's/PORT=5000/PORT=5001/' "$ROOT_DIR/server/.env" 2>/dev/null || true
+  sed -i '' 's/PORT=5000/PORT=5001/' "$ROOT_DIR/backend/.env" 2>/dev/null || true
 fi
 
-if [ ! -f "$ROOT_DIR/web/.env.local" ]; then
-  echo "📝 Creating web/.env.local from template..."
-  cp "$ROOT_DIR/web/.env.example" "$ROOT_DIR/web/.env.local"
-  sed -i '' 's/5000/5001/' "$ROOT_DIR/web/.env.local" 2>/dev/null || true
+if [ ! -f "$ROOT_DIR/frontend/.env.local" ]; then
+  echo "📝 Creating frontend/.env.local from template..."
+  cp "$ROOT_DIR/frontend/.env.example" "$ROOT_DIR/frontend/.env.local"
+  sed -i '' 's/5000/5001/' "$ROOT_DIR/frontend/.env.local" 2>/dev/null || true
 fi
 
 # 4. Install backend dependencies
-echo "📦 Installing backend dependencies (server)..."
-cd "$ROOT_DIR/server"
+echo "📦 Installing backend dependencies (backend)..."
+cd "$ROOT_DIR/backend"
 npm install --silent
 
 # 5. Install frontend dependencies
-echo "📦 Installing frontend dependencies (web)..."
-cd "$ROOT_DIR/web"
+echo "📦 Installing frontend dependencies (frontend)..."
+cd "$ROOT_DIR/frontend"
 npm install --silent
 
 # 6. Seed Database
 echo "🌱 Seeding database with demo café menu, tables, users, shifts & orders..."
-cd "$ROOT_DIR/server"
+cd "$ROOT_DIR/backend"
 npm run seed
 
 # 7. Run backend test suite
 echo "🧪 Running backend test verification..."
-cd "$ROOT_DIR/server"
+cd "$ROOT_DIR/backend"
 MONGODB_URI_TEST=mongodb://127.0.0.1:27017/restoflow_test npm test
 
 echo ""
 echo "✨ All systems verified! You are ready to slay!"
-echo "🚀 Run 'npm run dev' to start both the API and Web POS Terminal."
-echo "   - Web POS:    http://localhost:3000"
-echo "   - Backend:    http://localhost:5001/api/health"
+echo "🚀 Run 'npm run dev' to start both the Backend API and Frontend POS."
+echo "   - Frontend POS: http://localhost:3000"
+echo "   - Backend API:  http://localhost:5001/api/health"
 echo "   - API Docs:   http://localhost:5001/api/docs"
 echo ""
 echo "🔑 Demo Credentials (Staff & Admin):"

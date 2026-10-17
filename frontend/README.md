@@ -1,13 +1,13 @@
-# RestoFlow POS - Web (Next.js)
+# RestoFlow POS — Frontend (Next.js 14)
 
-Next.js 14 (App Router) frontend for the RestoFlow API in `../server`.
+Next.js 14 (App Router) frontend for the RestoFlow API in `../backend`.
 
 ## 📁 Page-Based Directory Structure
 
 The project components and pages are structured **strictly by page name** so that making edits to any page is straightforward and intuitive:
 
 ```
-web/
+frontend/
 ├── app/                                 # Next.js App Router (Route entrypoints)
 │   ├── (app)/
 │   │   ├── layout.js                    # Protected shell layout
@@ -77,7 +77,7 @@ web/
 
 ## Quick Start
 ```bash
-cd web
+cd frontend
 cp .env.example .env.local     # NEXT_PUBLIC_API_URL=http://localhost:5001/api
 npm install
 npm run dev                    # http://localhost:3000

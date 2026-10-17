@@ -1,7 +1,7 @@
-# RestoFlow POS - API (Task 1, backend)
+# RestoFlow POS — Backend API (Express + MongoDB)
 
 Express + MongoDB (Mongoose) + JWT REST API for restaurant menu, orders, billing, payments and daily sales.
-Frontend (Next.js) lives in `../web`. **Live URL:** _to be added after deployment_.
+Frontend (Next.js) lives in `../frontend`. **Live URL:** _to be added after deployment_.
 
 ## Features
 - JWT auth, roles `admin`, `shift_manager`, `cashier`, `kitchen`, plus legacy `staff` (cashier-equivalent), login rate limiting, bcrypt hashing
@@ -28,7 +28,7 @@ Frontend (Next.js) lives in `../web`. **Live URL:** _to be added after deploymen
 ## Setup
 Requires Node >= 18 and MongoDB (local or Atlas free tier).
 ```bash
-cd server
+cd backend
 cp .env.example .env      # set MONGODB_URI and a long JWT_SECRET
 npm install
 npm run seed              # demo users, menu, 3 days of sample orders

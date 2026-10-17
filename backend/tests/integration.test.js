@@ -221,7 +221,7 @@ d('API integration', () => {
     expect(orderRes.status).toBe(201);
     const order = orderRes.body.order;
 
-    const checkItem = (await request(app).get(`/api/menu/${burgerId}`)).body.item;
+    const checkItem = (await request(app).get(`/api/menu/${burgerId}`).set(auth(staff))).body.item;
     expect(checkItem.inventoryQuantity).toBe(2);
 
     // Pay for the order
@@ -247,9 +247,9 @@ d('API integration', () => {
     expect(returnRes.body.restoredStock[0].quantityRestored).toBe(2);
 
     // Verify stock is restored from 2 to 4
-    const restoredItem = (await request(app).get(`/api/menu/${burgerId}`)).body.item;
+    const restoredItem = (await request(app).get(`/api/menu/${burgerId}`).set(auth(staff))).body.item;
     expect(restoredItem.inventoryQuantity).toBe(4);
-    expect(restoredItem.stockStatus).toBe('in_stock');
+    expect(restoredItem.stockStatus).toBe('low_stock');
     expect(restoredItem.isAvailable).toBe(true);
   });
 

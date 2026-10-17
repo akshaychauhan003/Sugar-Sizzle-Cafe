@@ -158,8 +158,8 @@ async function verifyPassword(user, password) {
   if (!password || !user) return false;
   const bcrypt = require('bcryptjs');
   const User = require('../models/User');
-  const u = await User.findById(user._id);
-  if (!u) return false;
+  const u = await User.findById(user._id).select('+passwordHash');
+  if (!u || !u.passwordHash) return false;
   return bcrypt.compare(password, u.passwordHash);
 }
 

@@ -30,11 +30,11 @@ if lsof -ti :3000 >/dev/null 2>&1; then
 fi
 
 echo "☕ Starting Backend API on http://localhost:5001..."
-(cd "$ROOT_DIR/server" && npm run dev) &
-SERVER_PID=$!
+(cd "$ROOT_DIR/backend" && npm run dev) &
+BACKEND_PID=$!
 
-echo "⚡ Starting Next.js Web POS on http://localhost:3000..."
-(cd "$ROOT_DIR/web" && npm run dev) &
-WEB_PID=$!
+echo "⚡ Starting Next.js Frontend POS on http://localhost:3000..."
+(cd "$ROOT_DIR/frontend" && npm run dev) &
+FRONTEND_PID=$!
 
-wait $SERVER_PID $WEB_PID
+wait $BACKEND_PID $FRONTEND_PID

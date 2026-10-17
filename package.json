@@ -5,15 +5,20 @@
   "private": true,
   "scripts": {
     "setup": "bash scripts/setup.sh",
-    "seed": "cd server && npm run seed",
-    "test": "cd server && MONGODB_URI_TEST=mongodb://127.0.0.1:27017/restoflow_test npm test",
-    "test:server": "cd server && MONGODB_URI_TEST=mongodb://127.0.0.1:27017/restoflow_test npm test",
-    "dev:server": "cd server && npm run dev",
-    "dev:web": "cd web && npm run dev",
-    "build:web": "cd web && npm run build",
-    "build": "cd web && npm run build",
     "dev": "bash scripts/start.sh",
-    "devv": "bash scripts/start.sh"
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "cd frontend && npm run build",
+    "seed": "cd backend && npm run seed",
+    "seed:database": "node database/seeds/seed.js",
+    "test": "cd backend && MONGODB_URI_TEST=mongodb://127.0.0.1:27017/restoflow_test npm test",
+    "test:backend": "cd backend && MONGODB_URI_TEST=mongodb://127.0.0.1:27017/restoflow_test npm test",
+    "lint": "cd backend && npm run lint && cd ../frontend && npm run lint",
+    "dev:server": "npm run dev:backend",
+    "dev:web": "npm run dev:frontend",
+    "build:web": "npm run build:frontend",
+    "test:server": "npm run test:backend"
   },
   "devDependencies": {}
 }

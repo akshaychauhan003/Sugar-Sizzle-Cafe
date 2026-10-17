@@ -1,7 +1,7 @@
 {
-  "name": "restoflow-server",
+  "name": "restoflow-backend",
   "version": "1.0.0",
-  "description": "RestoFlow POS & Orders - Express + MongoDB API",
+  "description": "RestoFlow POS & Orders — Express + MongoDB REST API Backend",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
