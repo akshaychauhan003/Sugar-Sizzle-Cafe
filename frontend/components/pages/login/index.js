@@ -11,8 +11,15 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  function getRoleHome(role) {
+    if (role === 'admin') return '/reports';
+    if (role === 'kitchen') return '/kitchen';
+    if (role === 'staff') return '/orders';
+    return '/pos';
+  }
+
   useEffect(() => {
-    if (!loading && user) router.replace('/pos');
+    if (!loading && user) router.replace(getRoleHome(user.role));
   }, [loading, user, router]);
 
   async function handleLogin(email, password) {
@@ -21,8 +28,8 @@ export default function LoginPage() {
     setBusy(true);
     setError('');
     try {
-      await login(email, password);
-      router.replace('/pos');
+      const loggedUser = await login(email, password);
+      router.replace(getRoleHome(loggedUser?.role));
     } catch (err) {
       setError(errMsg(err));
     } finally {

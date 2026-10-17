@@ -9,7 +9,7 @@ export default function LoginForm({ onSubmit, error, busy }) {
 
   function handleSubmit(e) {
     e.preventDefault();
-    onSubmit(email, password);
+    onSubmit((email || '').trim(), password);
   }
 
   function handleFill(e, p) {

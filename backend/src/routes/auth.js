@@ -11,17 +11,24 @@ const asyncHandler = require('../lib/asyncHandler');
 const { unauthorized, badRequest } = require('../lib/errors');
 
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, limit: env.nodeEnv === 'test' ? 1000 : 20, standardHeaders: true, legacyHeaders: false,
+  windowMs: 15 * 60 * 1000,
+  limit: env.nodeEnv === 'production' ? 30 : 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
   handler: (_req, res) => res.status(429).json({ error: { code: 'RATE_LIMITED', message: 'Too many login attempts. Try again later.' } }),
 });
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 
 router.post('/login', loginLimiter, validate({ body: S.login }), asyncHandler(async (req, res) => {
   const identifier = (req.body.email || req.body.username || '').trim().toLowerCase();
+  const usernamePrefix = identifier.includes('@') ? identifier.split('@')[0] : identifier;
   const user = await User.findOne({
-    $or: [{ email: identifier }, { username: identifier }],
+    $or: [{ email: identifier }, { username: identifier }, { username: usernamePrefix }],
   }).select('+passwordHash');
-  const ok = await bcrypt.compare(req.body.password, user?.passwordHash || DUMMY_HASH);
+  const password = req.body.password;
+  const trimmedPassword = password ? password.trim() : '';
+  const ok = (await bcrypt.compare(password, user?.passwordHash || DUMMY_HASH)) ||
+    (trimmedPassword !== password ? await bcrypt.compare(trimmedPassword, user?.passwordHash || DUMMY_HASH) : false);
   if (!user || !ok || !user.isActive) throw unauthorized('Invalid user ID or password', 'INVALID_CREDENTIALS');
   const activeRole = user.activeRole || user.role;
   const token = jwt.sign({ sub: String(user._id), role: activeRole }, env.jwtSecret, { algorithm: 'HS256', expiresIn: env.jwtExpiresIn });

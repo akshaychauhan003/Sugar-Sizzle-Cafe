@@ -28,6 +28,7 @@ export default function AuthProvider({ children }) {
     const r = await api('/auth/login', { method: 'POST', body: { email, password } });
     tokenStore.set(r.token);
     setUser(r.user);
+    return r.user;
   }, []);
 
   const logout = useCallback(() => {
