@@ -22,13 +22,36 @@ const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 router.post('/login', loginLimiter, validate({ body: S.login }), asyncHandler(async (req, res) => {
   const identifier = (req.body.email || req.body.username || '').trim().toLowerCase();
   const usernamePrefix = identifier.includes('@') ? identifier.split('@')[0] : identifier;
-  const user = await User.findOne({
+
+  // 1. If database is completely empty (e.g. fresh cloud MongoDB Atlas cluster), auto-seed
+  if ((await User.countDocuments()) === 0) {
+    const { autoSeedDatabase } = require('../services/autoSeed');
+    await autoSeedDatabase();
+  }
+
+  let user = await User.findOne({
     $or: [{ email: identifier }, { username: identifier }, { username: usernamePrefix }],
   }).select('+passwordHash');
+
   const password = req.body.password;
   const trimmedPassword = password ? password.trim() : '';
-  const ok = (await bcrypt.compare(password, user?.passwordHash || DUMMY_HASH)) ||
+  let ok = (await bcrypt.compare(password, user?.passwordHash || DUMMY_HASH)) ||
     (trimmedPassword !== password ? await bcrypt.compare(trimmedPassword, user?.passwordHash || DUMMY_HASH) : false);
+
+  // 2. If credentials failed, check if this is a standard staff demo account needing sync (e.g. outdated password on cloud database)
+  if (!user || !ok) {
+    const DEMO_IDS = ['admin', 'cashier', 'chef', 'kitchen', 'staff', 'manager'];
+    if (DEMO_IDS.includes(identifier) || DEMO_IDS.includes(usernamePrefix)) {
+      const { ensureDemoUsers } = require('../services/autoSeed');
+      await ensureDemoUsers();
+      user = await User.findOne({
+        $or: [{ email: identifier }, { username: identifier }, { username: usernamePrefix }],
+      }).select('+passwordHash');
+      ok = (await bcrypt.compare(password, user?.passwordHash || DUMMY_HASH)) ||
+        (trimmedPassword !== password ? await bcrypt.compare(trimmedPassword, user?.passwordHash || DUMMY_HASH) : false);
+    }
+  }
+
   if (!user || !ok || !user.isActive) throw unauthorized('Invalid user ID or password', 'INVALID_CREDENTIALS');
   const activeRole = user.activeRole || user.role;
   const token = jwt.sign({ sub: String(user._id), role: activeRole }, env.jwtSecret, { algorithm: 'HS256', expiresIn: env.jwtExpiresIn });

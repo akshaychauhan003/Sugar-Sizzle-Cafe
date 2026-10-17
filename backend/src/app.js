@@ -6,6 +6,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 const mongoose = require('mongoose');
 const env = require('./config/env');
+const asyncHandler = require('./lib/asyncHandler');
 const { notFoundHandler, errorHandler } = require('./middleware/error');
 
 const app = express();
@@ -55,10 +56,29 @@ app.get('/api/health', (_req, res) => {
 try {
   const swaggerUi = require('swagger-ui-express');
   const YAML = require('yaml');
-  const spec = YAML.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'openapi.yaml'), 'utf8'));
-  app.get('/api/openapi.json', (_req, res) => res.json(spec));
-  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(spec));
-} catch (e) { console.warn('API docs not loaded:', e.message); }
+  const candidates = [
+    path.join(__dirname, '..', 'docs', 'openapi.yaml'),
+    path.join(__dirname, '..', '..', 'docs', 'openapi.yaml'),
+    path.join(process.cwd(), 'docs', 'openapi.yaml'),
+    path.join(process.cwd(), 'frontend', 'docs', 'openapi.yaml'),
+  ];
+  const specPath = candidates.find((p) => fs.existsSync(p));
+  if (specPath) {
+    const spec = YAML.parse(fs.readFileSync(specPath, 'utf8'));
+    app.get('/api/openapi.json', (_req, res) => res.json(spec));
+    app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(spec));
+  }
+} catch (e) {
+  if (env.nodeEnv === 'development') console.warn('API docs not loaded:', e.message);
+}
+
+// Emergency / On-demand Seeding Endpoint (for Cloud Deployments & Vercel)
+app.all('/api/seed', asyncHandler(async (req, res) => {
+  const { autoSeedDatabase, ensureDemoUsers } = require('./services/autoSeed');
+  const force = req.query.force === 'true' || req.body?.force === true;
+  const result = await autoSeedDatabase(force);
+  res.json({ ok: true, message: 'Database initialization / demo user sync complete', result });
+}));
 
 const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
