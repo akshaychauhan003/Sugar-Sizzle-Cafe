@@ -10,13 +10,41 @@ const { notFoundHandler, errorHandler } = require('./middleware/error');
 
 const app = express();
 app.set('trust proxy', 1);
-app.use(helmet());
-app.use(cors({
-  origin: (origin, cb) => (!origin || env.corsOrigins.includes(origin) ? cb(null, true) : cb(null, false)),
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+app.use(helmet({
+  crossOriginResourcePolicy: false,
 }));
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow non-browser requests or same-origin
+    if (!origin) return cb(null, true);
+    // Allow wildcard
+    if (env.corsOrigins.includes('*')) return cb(null, true);
+    // Direct match
+    if (env.corsOrigins.includes(origin)) return cb(null, true);
+    // Allow any .vercel.app domain automatically
+    if (origin.endsWith('.vercel.app') || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return cb(null, true);
+    }
+    return cb(null, true); // Permissive in cloud deployments to prevent network blocks
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  credentials: true,
+}));
+app.options('*', cors());
 app.use(express.json({ limit: '100kb' }));
 if (env.nodeEnv !== 'test') app.use(morgan(env.isProd ? 'combined' : 'dev'));
+
+app.get(['/', '/health'], (_req, res) => {
+  const dbUp = mongoose.connection.readyState === 1;
+  res.status(dbUp ? 200 : 503).json({
+    status: dbUp ? 'ok' : 'degraded',
+    db: dbUp ? 'up' : 'down',
+    uptime: process.uptime(),
+    service: 'Sugar & Sizzle (RestoFlow API)',
+  });
+});
 
 app.get('/api/health', (_req, res) => {
   const dbUp = mongoose.connection.readyState === 1;

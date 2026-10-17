@@ -1,4 +1,5 @@
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const rawApi = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').trim().replace(/\/+$/, '');
+const API = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`;
 export const CUR = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '₹';
 export const money = (n) => `${CUR}${Number(n || 0).toFixed(2)}`;
 const KEY = 'restoflow_token';
@@ -32,11 +33,13 @@ export const ROLE_ICONS = {
 export async function download(path, filename) {
   const token = tokenStore.get();
   let res;
+  const targetUrl = `${API}${path.startsWith('/') ? path : '/' + path}`;
   try {
-    res = await fetch(`${API}${path}`, {
+    res = await fetch(targetUrl, {
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     });
-  } catch {
+  } catch (err) {
+    console.error('[RestoFlow API Error] Failed downloading from:', targetUrl, err);
     throw new ApiError(0, 'NETWORK', 'Cannot reach the server. Check your connection and try again.');
   }
   if (!res.ok) {
@@ -58,13 +61,15 @@ export async function download(path, filename) {
 export async function api(path, { method = 'GET', body, headers = {} } = {}) {
   const token = tokenStore.get();
   let res;
+  const targetUrl = `${API}${path.startsWith('/') ? path : '/' + path}`;
   try {
-    res = await fetch(`${API}${path}`, {
+    res = await fetch(targetUrl, {
       method,
       headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
       body: body ? JSON.stringify(body) : undefined,
     });
-  } catch {
+  } catch (err) {
+    console.error('[RestoFlow API Error] Request failed to:', targetUrl, err);
     throw new ApiError(0, 'NETWORK', 'Cannot reach the server. Check your connection and try again.');
   }
   const data = await res.json().catch(() => ({}));
