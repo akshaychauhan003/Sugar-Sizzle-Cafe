@@ -1,1 +1,17 @@
-{ "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["./*"] } } }
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "app/**/*.js",
+    "app/**/*.jsx",
+    "components/**/*.js",
+    "components/**/*.jsx",
+    "lib/**/*.js",
+    "pages/**/*.js"
+  ],
+  "exclude": ["node_modules", ".next"]
+}
