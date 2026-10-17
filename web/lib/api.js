@@ -1,5 +1,5 @@
-const rawApi = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').trim().replace(/\/+$/, '');
-const API = rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`;
+const rawApi = (process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? '' : 'http://localhost:5001/api')).trim().replace(/\/+$/, '');
+const API = rawApi ? (rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`) : '/api';
 export const CUR = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '₹';
 export const money = (n) => `${CUR}${Number(n || 0).toFixed(2)}`;
 const KEY = 'restoflow_token';
