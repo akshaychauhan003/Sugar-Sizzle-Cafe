@@ -40,13 +40,13 @@ Docs: `http://localhost:5001/api/docs` (Swagger UI, spec in `docs/openapi.yaml`)
 See `.env.example`: `NODE_ENV, PORT, MONGODB_URI, JWT_SECRET, JWT_EXPIRES_IN, CORS_ORIGINS, DEFAULT_TAX_RATE, STAFF_MAX_DISCOUNT_PERCENT, REPORT_TZ_OFFSET_MINUTES, SEED_ALLOW_PRODUCTION`.
 
 ### Demo accounts (development/test data only)
-| Role | Email | Password |
-|---|---|---|
-| Admin | admin@restoflow.test | Admin@12345 |
-| Staff (legacy) | staff@restoflow.test | Staff@12345 |
-| Shift Manager | manager@restoflow.test | Manager@12345 |
-| Cashier | cashier@restoflow.test | Cashier@12345 |
-| Kitchen | kitchen@restoflow.test | Kitchen@12345 |
+| Role | User ID / Username | Email | Password |
+|---|---|---|---|
+| Admin | admin | admin@sugarsizzle.com | Admin@123 |
+| Cashier | cashier | cashier@sugarsizzle.com | Cashier@123 |
+| Chef / Barista | chef | chef@sugarsizzle.com | Chef@123 |
+| Staff (Waitstaff) | staff | staff@sugarsizzle.com | Staff@123 |
+| Shift Manager | manager | manager@sugarsizzle.com | Manager@123 |
 
 `npm run seed` wipes the database and refuses to run in production unless `SEED_ALLOW_PRODUCTION=true`.
 

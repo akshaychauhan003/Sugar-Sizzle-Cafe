@@ -17,10 +17,12 @@ const loginLimiter = rateLimit({
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 
 router.post('/login', loginLimiter, validate({ body: S.login }), asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-  const user = await User.findOne({ email }).select('+passwordHash');
-  const ok = await bcrypt.compare(password, user?.passwordHash || DUMMY_HASH);
-  if (!user || !ok || !user.isActive) throw unauthorized('Invalid email or password', 'INVALID_CREDENTIALS');
+  const identifier = (req.body.email || req.body.username || '').trim().toLowerCase();
+  const user = await User.findOne({
+    $or: [{ email: identifier }, { username: identifier }],
+  }).select('+passwordHash');
+  const ok = await bcrypt.compare(req.body.password, user?.passwordHash || DUMMY_HASH);
+  if (!user || !ok || !user.isActive) throw unauthorized('Invalid user ID or password', 'INVALID_CREDENTIALS');
   const activeRole = user.activeRole || user.role;
   const token = jwt.sign({ sub: String(user._id), role: activeRole }, env.jwtSecret, { algorithm: 'HS256', expiresIn: env.jwtExpiresIn });
   res.json({ token, user });

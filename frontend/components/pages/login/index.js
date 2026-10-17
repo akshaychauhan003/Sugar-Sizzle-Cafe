@@ -16,7 +16,7 @@ export default function LoginPage() {
   }, [loading, user, router]);
 
   async function handleLogin(email, password) {
-    if (!/^\S+@\S+\.\S+$/.test(email)) return setError('Enter a valid email address');
+    if (!email || !email.trim()) return setError('Enter your User ID or email address');
     if (!password) return setError('Password is required');
     setBusy(true);
     setError('');

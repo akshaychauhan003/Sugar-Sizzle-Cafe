@@ -132,11 +132,15 @@ const auditQuery = z.object({
   ...page,
 });
 
-const login = z.object({ email: z.string().trim().toLowerCase().email().max(120), password: z.string().min(1).max(200) });
+const login = z.object({
+  email: z.string().trim().toLowerCase().min(1).max(120),
+  password: z.string().min(1).max(200),
+});
 const createUser = z.object({
   name: z.string().trim().min(1).max(80),
+  username: z.string().trim().toLowerCase().min(1).max(40).optional(),
   email: z.string().trim().toLowerCase().email().max(120),
-  password: z.string().min(8).max(100),
+  password: z.string().min(6).max(100),
   role: z.enum(ROLES).optional().default('staff'),
   roles: z.array(z.enum(ROLES)).optional(),
   branch: z.string().trim().max(80).optional(),

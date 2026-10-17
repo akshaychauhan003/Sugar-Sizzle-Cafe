@@ -51,13 +51,13 @@ npm run dev
 
 ## 🔑 Demo Staff & Admin Accounts
 
-| Role | Email | Password | Permissions |
-|---|---|---|---|
-| **👑 Admin** | `admin@restoflow.test` | `Admin@12345` | Full menu CRUD, all discounts, audit log, reports, refunds |
-| **🧾 Staff** | `staff@restoflow.test` | `Staff@12345` | POS register, take orders, settle bills, print receipts |
-| **💵 Cashier** | `cashier@restoflow.test` | `Cashier@12345` | POS register, payments, shift reconciliation |
-| **👨‍🍳 Kitchen** | `kitchen@restoflow.test` | `Kitchen@12345` | Kitchen Display System (KDS) & line prep statuses |
-| **📋 Manager** | `manager@restoflow.test` | `Manager@12345` | Shift locking, cancellations, discount approvals |
+| Role | User ID / Login | Email | Password | Permissions |
+|---|---|---|---|---|
+| **👑 Admin** | `admin` | `admin@sugarsizzle.com` | `Admin@123` | Full menu CRUD, all discounts, audit log, reports, users |
+| **💵 Cashier** | `cashier` | `cashier@sugarsizzle.com` | `Cashier@123` | POS drinks register, orders, payments, shift reconciliation |
+| **👨‍🍳 Chef / Barista** | `chef` | `chef@sugarsizzle.com` | `Chef@123` | Kitchen Display System (KDS), drink prep & stock expiry |
+| **🧾 Waitstaff** | `staff` | `staff@sugarsizzle.com` | `Staff@123` | Table delivery queue, confirm customer departure & table turnover |
+| **📋 Manager** | `manager` | `manager@sugarsizzle.com` | `Manager@123` | Shift locking, cancellations, discount approvals |
 
 * **Secret Promo Coupons**: `WELCOME10` (10% off), `FLAT50` (flat ₹50 off).
 

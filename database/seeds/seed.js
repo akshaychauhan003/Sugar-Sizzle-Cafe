@@ -1,12 +1,13 @@
 /**
- * Master Database Seed Script — Sugar & Sizzle (RestoFlow POS)
- * Resets collections and seeds sample data:
- * - Admin, Staff, Shift Manager, Cashier, Kitchen accounts
- * - Categories & Menu Items with ingredient stock links
- * - Stock inventory with shelf-life and batch tracking
- * - 12 cafe tables across Indoor Main and Outdoor Patio
+ * Master Database Seed Script — Sugar & Sizzle Café (Artisan Coffee & Drinks POS)
+ * Resets collections and seeds:
+ * - Admin, Staff, Shift Manager, Cashier, Kitchen accounts with simple IDs & passwords
+ * - 4 Beverage Categories: Hot Drinks, Cold Drinks, Shakes, Juices & Coolers
+ * - 23 Handcrafted drinks with recipes, costs, and modifiers
+ * - Stock inventory with shelf-life, batch numbers, and expiry tracking
+ * - 12 cafe tables across Indoor Main and Outdoor Patio (Available, Occupied, Cleaning)
  * - Discount coupons (WELCOME10, FLAT50)
- * - 3 days of realistic orders, kitchen tickets, invoices, and shift audits
+ * - 38 realistic drink orders across 3 days with tickets, payments, and invoices
  */
 const path = require('path');
 
@@ -70,24 +71,26 @@ async function runSeed() {
     Stock.deleteMany({}),
   ]);
 
-  console.log('👤 Seeding demo users...');
+  console.log('👤 Seeding demo users with direct role IDs and simple passwords...');
   const users = [];
   for (const u of DEMO_USERS) {
     users.push(await User.create({
       name: u.name,
+      username: u.username,
       email: u.email,
       role: u.role,
       roles: u.roles || [u.role],
+      phone: u.phone || '',
       passwordHash: await bcrypt.hash(u.password, 10),
     }));
   }
   const byRole = Object.fromEntries(users.map((u) => [u.role, u]));
 
-  console.log('🏷️  Seeding menu categories...');
-  const categoryNames = [...new Set(MENU.map((m) => m[2]))];
+  console.log('🏷️  Seeding beverage categories...');
+  const categoryNames = ['Hot Drinks', 'Cold Drinks', 'Shakes', 'Juices & Coolers'];
   const categories = await Category.insertMany(categoryNames.map((name, i) => ({
     name,
-    description: `${name} menu section`,
+    description: `${name} specialty section`,
     displayOrder: i + 1,
     isActive: true,
   })));
@@ -96,99 +99,348 @@ async function runSeed() {
   const now = new Date();
   const inDays = (d) => new Date(now.getTime() + d * 86400000);
 
-  console.log('📦 Seeding stock inventory...');
+  console.log('📦 Seeding beverage stock inventory...');
   const stockDocs = await Stock.insertMany([
     {
-      itemName: 'Buffalo Mozzarella Cheese', category: 'Dairy', quantity: 12, unit: 'kg', costPrice: 420,
-      batchNumber: 'STK-2026-001', supplier: 'Artisan Valley Farms', purchaseDate: inDays(-5), expiryDate: inDays(3),
-      status: 'in_stock', minimumQuantity: 5, notes: 'Fresh Italian buffalo mozzarella for Neapolitan pizzas', createdBy: byRole.admin._id,
+      itemName: 'Single-Origin Ethiopian Yirgacheffe Beans',
+      category: 'Coffee & Tea',
+      quantity: 45,
+      unit: 'kg',
+      costPrice: 650,
+      batchNumber: 'STK-2026-001',
+      supplier: 'Equator Coffee Roasters',
+      purchaseDate: inDays(-10),
+      expiryDate: inDays(50),
+      status: 'in_stock',
+      minimumQuantity: 10,
+      notes: 'Light floral roast for cold brew & espresso',
+      createdBy: byRole.admin._id,
     },
     {
-      itemName: 'Heavy Dairy Cream', category: 'Dairy', quantity: 4, unit: 'L', costPrice: 180,
-      batchNumber: 'STK-2026-002', supplier: 'Highland Pure Dairies', purchaseDate: inDays(-4), expiryDate: inDays(2),
-      status: 'low_stock', minimumQuantity: 6, notes: 'Dessert preparation & sauce reduction', createdBy: byRole.admin._id,
+      itemName: 'Barista Grade Whole Dairy Milk',
+      category: 'Dairy',
+      quantity: 35,
+      unit: 'L',
+      costPrice: 65,
+      batchNumber: 'STK-2026-002',
+      supplier: 'Highland Pure Dairies',
+      purchaseDate: inDays(-2),
+      expiryDate: inDays(5),
+      status: 'in_stock',
+      minimumQuantity: 10,
+      notes: 'Fresh pasteurized whole milk for lattes & cappuccinos',
+      createdBy: byRole.admin._id,
     },
     {
-      itemName: 'Prime Wagyu Ground Chuck', category: 'Meat & Seafood', quantity: 24, unit: 'kg', costPrice: 1200,
-      batchNumber: 'STK-2026-003', supplier: 'Miyazaki Meats Co.', purchaseDate: inDays(-2), expiryDate: inDays(5),
-      status: 'in_stock', minimumQuantity: 8, notes: 'For signature Wagyu burgers', createdBy: byRole.admin._id,
+      itemName: 'Barista Grade Oat Milk',
+      category: 'Beverages',
+      quantity: 28,
+      unit: 'L',
+      costPrice: 210,
+      batchNumber: 'STK-2026-003',
+      supplier: 'PureOat Organics',
+      purchaseDate: inDays(-7),
+      expiryDate: inDays(25),
+      status: 'in_stock',
+      minimumQuantity: 8,
+      notes: 'Plant-based coffee specialty lattes',
+      createdBy: byRole.admin._id,
     },
     {
-      itemName: 'Single-Origin Ethiopian Yirgacheffe Beans', category: 'Coffee & Tea', quantity: 45, unit: 'kg', costPrice: 650,
-      batchNumber: 'STK-2026-004', supplier: 'Equator Coffee Roasters', purchaseDate: inDays(-10), expiryDate: inDays(50),
-      status: 'in_stock', minimumQuantity: 10, notes: 'Light floral roast for cold brew & espresso', createdBy: byRole.admin._id,
+      itemName: 'Raw Organic Hot Honey Infusion',
+      category: 'Produce',
+      quantity: 18,
+      unit: 'jars',
+      costPrice: 320,
+      batchNumber: 'STK-2026-004',
+      supplier: 'Smoky Ridge Apiaries',
+      purchaseDate: inDays(-12),
+      expiryDate: inDays(90),
+      status: 'in_stock',
+      minimumQuantity: 4,
+      notes: 'Chili infused wild blossom honey for signature cappuccino',
+      createdBy: byRole.admin._id,
     },
     {
-      itemName: 'Artisan Brioche Burger Buns', category: 'Bakery', quantity: 48, unit: 'units', costPrice: 22,
-      batchNumber: 'STK-2026-005', supplier: 'Golden Crust Bakery', purchaseDate: inDays(-1), expiryDate: inDays(4),
-      status: 'in_stock', minimumQuantity: 12, notes: 'Freshly baked butter brioche', createdBy: byRole.admin._id,
+      itemName: 'Callebaut 70% Dark Chocolate Callets',
+      category: 'Dry Goods',
+      quantity: 20,
+      unit: 'kg',
+      costPrice: 850,
+      batchNumber: 'STK-2026-005',
+      supplier: 'Belgian Cocoa Importers',
+      purchaseDate: inDays(-15),
+      expiryDate: inDays(75),
+      status: 'in_stock',
+      minimumQuantity: 5,
+      notes: 'For Belgian mochas and dark chocolate thickshakes',
+      createdBy: byRole.admin._id,
     },
     {
-      itemName: 'San Marzano D.O.P. Whole Peeled Tomatoes', category: 'Dry Goods', quantity: 36, unit: 'cans', costPrice: 135,
-      batchNumber: 'STK-2026-006', supplier: 'Napoli Food Direct', purchaseDate: inDays(-20), expiryDate: inDays(120),
-      status: 'in_stock', minimumQuantity: 10, notes: 'Pizza base and slow cooked marinara', createdBy: byRole.admin._id,
+      itemName: 'Madagascar Vanilla Bean Syrup',
+      category: 'Beverages',
+      quantity: 14,
+      unit: 'bottles',
+      costPrice: 450,
+      batchNumber: 'STK-2026-006',
+      supplier: 'Monin Artisanal',
+      purchaseDate: inDays(-8),
+      expiryDate: inDays(60),
+      status: 'in_stock',
+      minimumQuantity: 3,
+      notes: 'Natural vanilla bean reduction',
+      createdBy: byRole.admin._id,
     },
     {
-      itemName: 'Fresh Monterey Bay Squid', category: 'Meat & Seafood', quantity: 10, unit: 'kg', costPrice: 390,
-      batchNumber: 'STK-2026-007', supplier: 'Pacific Coast Fishery', purchaseDate: inDays(-3), expiryDate: inDays(2),
-      status: 'in_stock', minimumQuantity: 4, notes: 'Flash-fried calamari fritti prep', createdBy: byRole.admin._id,
+      itemName: 'House Salted Caramel Sauce',
+      category: 'Beverages',
+      quantity: 12,
+      unit: 'bottles',
+      costPrice: 380,
+      batchNumber: 'STK-2026-007',
+      supplier: 'Artisan Confectionery Co',
+      purchaseDate: inDays(-6),
+      expiryDate: inDays(40),
+      status: 'in_stock',
+      minimumQuantity: 3,
+      notes: 'Buttery caramel with sea salt crystals',
+      createdBy: byRole.admin._id,
     },
     {
-      itemName: 'Barista Grade Oat Milk', category: 'Beverages', quantity: 32, unit: 'L', costPrice: 210,
-      batchNumber: 'STK-2026-008', supplier: 'PureOat Organics', purchaseDate: inDays(-7), expiryDate: inDays(25),
-      status: 'in_stock', minimumQuantity: 8, notes: 'Plant-based coffee specialty lattes', createdBy: byRole.admin._id,
+      itemName: 'Ceremonial Uji Japanese Matcha',
+      category: 'Coffee & Tea',
+      quantity: 8,
+      unit: 'tins',
+      costPrice: 920,
+      batchNumber: 'STK-2026-008',
+      supplier: 'Kyoto Tea Collective',
+      purchaseDate: inDays(-14),
+      expiryDate: inDays(45),
+      status: 'in_stock',
+      minimumQuantity: 2,
+      notes: 'First-harvest shade-grown green tea powder',
+      createdBy: byRole.admin._id,
     },
     {
-      itemName: 'Wild Black Truffle Aioli', category: 'Produce', quantity: 8, unit: 'jars', costPrice: 780,
-      batchNumber: 'STK-2026-009', supplier: 'Umbria Truffles', purchaseDate: inDays(-15), expiryDate: inDays(70),
-      status: 'in_stock', minimumQuantity: 2, notes: 'Gourmet burger & parmesan fry dip', createdBy: byRole.admin._id,
+      itemName: 'Fresh Golden Assam CTC Tea Leaves',
+      category: 'Coffee & Tea',
+      quantity: 22,
+      unit: 'kg',
+      costPrice: 380,
+      batchNumber: 'STK-2026-009',
+      supplier: 'Brahmaputra Valley Tea',
+      purchaseDate: inDays(-20),
+      expiryDate: inDays(120),
+      status: 'in_stock',
+      minimumQuantity: 5,
+      notes: 'Strong malty brew for royal cardamom masala chai',
+      createdBy: byRole.admin._id,
     },
     {
-      itemName: 'Mediterranean Sea Bass Fillets', category: 'Meat & Seafood', quantity: 0, unit: 'kg', costPrice: 580,
-      batchNumber: 'STK-2026-010', supplier: 'Coastal Catch Ltd', purchaseDate: inDays(-6), expiryDate: inDays(-1),
-      status: 'expired', minimumQuantity: 5, wastedQuantity: 5, wasteReason: 'Expired past shelf life', notes: 'Out of stock & expired batch - discarded', createdBy: byRole.admin._id,
+      itemName: 'Ratnagiri Alphonso Mango Pulp',
+      category: 'Produce',
+      quantity: 16,
+      unit: 'kg',
+      costPrice: 280,
+      batchNumber: 'STK-2026-010',
+      supplier: 'Konkan Fruit Orchard',
+      purchaseDate: inDays(-5),
+      expiryDate: inDays(20),
+      status: 'in_stock',
+      minimumQuantity: 4,
+      notes: 'Fresh sweet mango puree for shakes and coolers',
+      createdBy: byRole.admin._id,
+    },
+    {
+      itemName: 'Pure Japanese Yuzu Citrus Extract',
+      category: 'Beverages',
+      quantity: 9,
+      unit: 'bottles',
+      costPrice: 520,
+      batchNumber: 'STK-2026-011',
+      supplier: 'Shikoku Citrus Exports',
+      purchaseDate: inDays(-18),
+      expiryDate: inDays(35),
+      status: 'in_stock',
+      minimumQuantity: 2,
+      notes: 'Aromatic tart yuzu juice for sparkling coolers',
+      createdBy: byRole.admin._id,
+    },
+    {
+      itemName: 'Hydroponic Garden Spearmint',
+      category: 'Produce',
+      quantity: 3,
+      unit: 'bunches',
+      costPrice: 40,
+      batchNumber: 'STK-2026-012',
+      supplier: 'GreenLeaf Hydroponics',
+      purchaseDate: inDays(-2),
+      expiryDate: inDays(2),
+      status: 'low_stock',
+      minimumQuantity: 5,
+      notes: 'Fresh aromatic mint for coolers and mojitos',
+      createdBy: byRole.admin._id,
+    },
+    {
+      itemName: 'Heavy Dairy Cream 36%',
+      category: 'Dairy',
+      quantity: 4,
+      unit: 'L',
+      costPrice: 180,
+      batchNumber: 'STK-2026-013',
+      supplier: 'Highland Pure Dairies',
+      purchaseDate: inDays(-3),
+      expiryDate: inDays(1),
+      status: 'low_stock',
+      minimumQuantity: 6,
+      notes: 'Whipped cream toppings for shakes and mochas',
+      createdBy: byRole.admin._id,
+    },
+    {
+      itemName: 'Pure Nutella Hazelnut Spread',
+      category: 'Dry Goods',
+      quantity: 10,
+      unit: 'tubs',
+      costPrice: 620,
+      batchNumber: 'STK-2026-014',
+      supplier: 'Ferrero Distribution',
+      purchaseDate: inDays(-25),
+      expiryDate: inDays(80),
+      status: 'in_stock',
+      minimumQuantity: 3,
+      notes: 'For signature Nutella roasted hazelnut thickshakes',
+      createdBy: byRole.admin._id,
+    },
+    {
+      itemName: 'Fresh Seedless Watermelons',
+      category: 'Produce',
+      quantity: 25,
+      unit: 'kg',
+      costPrice: 45,
+      batchNumber: 'STK-2026-015',
+      supplier: 'SunValley Fresh Produce',
+      purchaseDate: inDays(-3),
+      expiryDate: inDays(4),
+      status: 'in_stock',
+      minimumQuantity: 8,
+      notes: 'Cold-pressed fresh watermelon basil juices',
+      createdBy: byRole.admin._id,
+    },
+    {
+      itemName: 'Fresh Sweet Valencia Oranges',
+      category: 'Produce',
+      quantity: 30,
+      unit: 'kg',
+      costPrice: 70,
+      batchNumber: 'STK-2026-016',
+      supplier: 'Citrus Grove Farms',
+      purchaseDate: inDays(-4),
+      expiryDate: inDays(6),
+      status: 'in_stock',
+      minimumQuantity: 10,
+      notes: 'Cold-pressed orange ginger wellness elixirs',
+      createdBy: byRole.admin._id,
+    },
+    {
+      itemName: 'Expired Sweet Lime Puree Batch',
+      category: 'Produce',
+      quantity: 0,
+      unit: 'kg',
+      costPrice: 220,
+      batchNumber: 'STK-2026-017',
+      supplier: 'SunValley Fresh Produce',
+      purchaseDate: inDays(-8),
+      expiryDate: inDays(-1),
+      status: 'expired',
+      minimumQuantity: 5,
+      wastedQuantity: 6,
+      wasteReason: 'Expired past shelf life',
+      notes: 'Out of stock & expired batch - safely disposed',
+      createdBy: byRole.admin._id,
     },
   ]);
 
   const stockByName = Object.fromEntries(stockDocs.map((s) => [s.itemName, s]));
 
-  console.log('🍕 Seeding menu catalog with recipe links...');
+  console.log('☕ Seeding drink menu catalog with recipe links...');
   const items = await MenuItem.insertMany(MENU.map(([name, sku, category, price, prepTimeMin, description, cost, recipe]) => {
     let recipeItems = [];
-    if (sku === 'PIZ-0102') {
+    if (sku === 'HOT-01') {
       recipeItems = [
-        { stockItem: stockByName['Buffalo Mozzarella Cheese']?._id, stockItemName: 'Buffalo Mozzarella Cheese', quantityRequired: 0.2, unit: 'kg' },
-        { stockItem: stockByName['San Marzano D.O.P. Whole Peeled Tomatoes']?._id, stockItemName: 'San Marzano D.O.P. Whole Peeled Tomatoes', quantityRequired: 1, unit: 'cans' },
+        { stockItem: stockByName['Single-Origin Ethiopian Yirgacheffe Beans']?._id, stockItemName: 'Single-Origin Ethiopian Yirgacheffe Beans', quantityRequired: 0.02, unit: 'kg' },
+        { stockItem: stockByName['Barista Grade Whole Dairy Milk']?._id, stockItemName: 'Barista Grade Whole Dairy Milk', quantityRequired: 0.18, unit: 'L' },
+        { stockItem: stockByName['Raw Organic Hot Honey Infusion']?._id, stockItemName: 'Raw Organic Hot Honey Infusion', quantityRequired: 0.05, unit: 'jars' },
       ];
-    } else if (sku === 'BUR-0044') {
+    } else if (sku === 'HOT-05') {
       recipeItems = [
-        { stockItem: stockByName['Prime Wagyu Ground Chuck']?._id, stockItemName: 'Prime Wagyu Ground Chuck', quantityRequired: 0.2, unit: 'kg' },
-        { stockItem: stockByName['Artisan Brioche Burger Buns']?._id, stockItemName: 'Artisan Brioche Burger Buns', quantityRequired: 1, unit: 'units' },
-        { stockItem: stockByName['Wild Black Truffle Aioli']?._id, stockItemName: 'Wild Black Truffle Aioli', quantityRequired: 0.05, unit: 'jars' },
+        { stockItem: stockByName['Single-Origin Ethiopian Yirgacheffe Beans']?._id, stockItemName: 'Single-Origin Ethiopian Yirgacheffe Beans', quantityRequired: 0.02, unit: 'kg' },
+        { stockItem: stockByName['Callebaut 70% Dark Chocolate Callets']?._id, stockItemName: 'Callebaut 70% Dark Chocolate Callets', quantityRequired: 0.04, unit: 'kg' },
+        { stockItem: stockByName['Barista Grade Whole Dairy Milk']?._id, stockItemName: 'Barista Grade Whole Dairy Milk', quantityRequired: 0.2, unit: 'L' },
       ];
-    } else if (sku === 'APP-0012') {
+    } else if (sku === 'CLD-01') {
       recipeItems = [
-        { stockItem: stockByName['Fresh Monterey Bay Squid']?._id, stockItemName: 'Fresh Monterey Bay Squid', quantityRequired: 0.25, unit: 'kg' },
+        { stockItem: stockByName['Single-Origin Ethiopian Yirgacheffe Beans']?._id, stockItemName: 'Single-Origin Ethiopian Yirgacheffe Beans', quantityRequired: 0.04, unit: 'kg' },
       ];
-    } else if (sku === 'BEV-0081') {
+    } else if (sku === 'SHK-01') {
       recipeItems = [
-        { stockItem: stockByName['Single-Origin Ethiopian Yirgacheffe Beans']?._id, stockItemName: 'Single-Origin Ethiopian Yirgacheffe Beans', quantityRequired: 0.03, unit: 'kg' },
+        { stockItem: stockByName['Callebaut 70% Dark Chocolate Callets']?._id, stockItemName: 'Callebaut 70% Dark Chocolate Callets', quantityRequired: 0.05, unit: 'kg' },
+        { stockItem: stockByName['Barista Grade Whole Dairy Milk']?._id, stockItemName: 'Barista Grade Whole Dairy Milk', quantityRequired: 0.25, unit: 'L' },
+        { stockItem: stockByName['Heavy Dairy Cream 36%']?._id, stockItemName: 'Heavy Dairy Cream 36%', quantityRequired: 0.05, unit: 'L' },
       ];
-    } else if (sku === 'MAI-0025') {
+    } else if (sku === 'SHK-04') {
       recipeItems = [
-        { stockItem: stockByName['Mediterranean Sea Bass Fillets']?._id, stockItemName: 'Mediterranean Sea Bass Fillets', quantityRequired: 0.3, unit: 'kg' },
+        { stockItem: stockByName['Pure Nutella Hazelnut Spread']?._id, stockItemName: 'Pure Nutella Hazelnut Spread', quantityRequired: 0.08, unit: 'tubs' },
+        { stockItem: stockByName['Barista Grade Whole Dairy Milk']?._id, stockItemName: 'Barista Grade Whole Dairy Milk', quantityRequired: 0.25, unit: 'L' },
+      ];
+    } else if (sku === 'JUC-01') {
+      recipeItems = [
+        { stockItem: stockByName['Pure Japanese Yuzu Citrus Extract']?._id, stockItemName: 'Pure Japanese Yuzu Citrus Extract', quantityRequired: 0.05, unit: 'bottles' },
+        { stockItem: stockByName['Hydroponic Garden Spearmint']?._id, stockItemName: 'Hydroponic Garden Spearmint', quantityRequired: 0.1, unit: 'bunches' },
+      ];
+    } else if (sku === 'JUC-03') {
+      recipeItems = [
+        { stockItem: stockByName['Fresh Seedless Watermelons']?._id, stockItemName: 'Fresh Seedless Watermelons', quantityRequired: 0.4, unit: 'kg' },
       ];
     }
 
-    const isSeaBass = sku === 'MAI-0025';
+    const isOutOfStock = sku === 'JUC-06'; // Pink Guava Chili Sparkler demo low/out of stock
+    const isLowStock = sku === 'JUC-01'; // Spearmint low stock
+
+    let modifiers = [];
+    if (category === 'Hot Drinks' || category === 'Cold Drinks') {
+      modifiers = [
+        { name: 'Extra Espresso Shot', price: 40 },
+        { name: 'Barista Oat Milk Substitute', price: 35 },
+        { name: 'Sugar-Free Monkfruit Drops', price: 20 },
+      ];
+    } else if (category === 'Shakes') {
+      modifiers = [
+        { name: 'Extra Whipped Cream & Fudge', price: 30 },
+        { name: 'Whey Protein Boost (+15g)', price: 60 },
+        { name: 'Crushed Oreo & Hazelnut Dust', price: 25 },
+      ];
+    } else if (category === 'Juices & Coolers') {
+      modifiers = [
+        { name: 'Chia Seeds Superfood Boost', price: 25 },
+        { name: 'Extra Muddled Fresh Mint', price: 15 },
+      ];
+    }
+
     return {
-      name, sku, category, categoryId: catByName[category]?._id,
-      price, cost, prepTimeMin, description, recipe,
+      name,
+      sku,
+      category,
+      categoryId: catByName[category]?._id,
+      price,
+      cost,
+      prepTimeMin,
+      description,
+      recipe,
       recipeItems,
-      stockStatus: isSeaBass ? 'out_of_stock' : sku === 'BEV-0081' ? 'low_stock' : 'in_stock',
-      isAvailable: !isSeaBass && sku !== 'BEV-0081',
-      inventoryQuantity: isSeaBass ? 0 : sku === 'BEV-0081' ? 3 : 45,
-      modifiers: category === 'Pizzas' ? [{ name: 'Extra cheese', price: 2 }, { name: 'Gluten-free base', price: 3 }] : [],
+      stockStatus: isOutOfStock ? 'out_of_stock' : isLowStock ? 'low_stock' : 'in_stock',
+      isAvailable: !isOutOfStock,
+      inventoryQuantity: isOutOfStock ? 0 : isLowStock ? 4 : 50,
+      modifiers,
     };
   }));
 
@@ -205,9 +457,9 @@ async function runSeed() {
 
   await Coupon.insertMany(COUPONS);
 
-  console.log('🧾 Generating 38 realistic orders across 3 days...');
+  console.log('🧾 Generating 38 realistic drink orders across 3 days...');
   const sellable = items.filter((i) => i.isAvailable);
-  let seed = 7;
+  let seed = 19;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const states = ['completed', 'completed', 'completed', 'ready', 'preparing', 'pending', 'cancelled'];
   const methods = ['cash', 'upi', 'card'];
@@ -223,13 +475,14 @@ async function runSeed() {
     const count = back === 0 ? 14 : 12;
     for (let k = 0; k < count; k++) {
       const when = new Date(Date.now() - back * 86400000);
-      const hourPool = [11, 12, 13, 14, 19, 20, 21, 12, 13, 20];
+      const hourPool = [9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20];
       when.setUTCHours(hourPool[Math.floor(rnd() * hourPool.length)] - 5, Math.floor(rnd() * 60));
+
       const lines = Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => {
         const m = sellable[Math.floor(rnd() * sellable.length)];
         return { menuItem: m._id, name: m.name, sku: m.sku, unitPrice: m.price, quantity: 1 + Math.floor(rnd() * 2), notes: '' };
       });
-      const discount = rnd() < 0.2 ? { type: 'percent', value: 10 } : undefined;
+      const discount = rnd() < 0.25 ? { type: 'percent', value: 10 } : undefined;
       const bill = computeBill({ lines, taxRate: 5, discount });
       const status = back > 0 && ['ready', 'preparing', 'pending'].includes(states[k % 7]) ? 'completed' : states[k % 7];
       const paid = status === 'completed' || (status === 'ready' && rnd() < 0.5);
@@ -269,7 +522,7 @@ async function runSeed() {
         type,
         tableNumber: table ? table.code : null,
         tableId: table && status !== 'completed' && status !== 'cancelled' ? table._id : (table?._id || null),
-        customerName: ['Marcus Vance', 'Elena Rostova', 'Liam Davis', 'Zoe Martinez', ''][k % 5],
+        customerName: ['Marcus Vance', 'Elena Rostova', 'Liam Davis', 'Zoe Martinez', 'Aarav Sharma', 'Priya Patel', ''][k % 7],
         items: bill.lines,
         discount: bill.discountMinor ? discount : undefined,
         taxRate: 5,
@@ -293,6 +546,7 @@ async function runSeed() {
 
       if (back === 0) openShiftOrders.push(order);
 
+      // Tables with active orders remain occupied
       if (table && ['pending', 'preparing', 'ready'].includes(status) && type === 'dine-in') {
         table.status = 'occupied';
         table.currentOrder = order._id;
@@ -348,42 +602,42 @@ async function runSeed() {
             taxAmount: order.taxAmount,
             total: order.total,
           },
+          subtotal: order.subtotal,
+          taxAmount: order.taxAmount,
+          discountAmount: order.discountAmount,
+          total: order.total,
+          paymentMethod: method,
           issuedAt: when,
-          createdAt: when,
+          issuedBy: byRole.cashier._id,
         });
       }
     }
   }
 
-  console.log('⏰ Initializing active register shift...');
-  const shiftDay = day.replace(/-/g, '');
-  const cashTotals = openShiftOrders.reduce((acc, o) => {
-    for (const p of o.payments || []) acc[p.method] = (acc[p.method] || 0) + p.amount;
-    return acc;
-  }, { cash: 0, upi: 0, card: 0 });
+  // Pre-seed one table in 'cleaning' state for waitstaff demonstration
+  const t7 = tables.find((t) => t.code === 'T-07');
+  if (t7 && t7.status === 'available') {
+    t7.status = 'cleaning';
+    await t7.save();
+  }
 
+  console.log('⏰ Opening active café shift...');
+  const openedAt = new Date();
+  openedAt.setUTCHours(openedAt.getUTCHours() - 3);
   await Shift.create({
-    shiftNumber: `SH-${shiftDay}-001`,
-    openedBy: byRole.shift_manager._id,
-    openingCash: 2000,
-    expectedCash: 2000 + (cashTotals.cash || 0),
-    totals: {
-      cash: Math.round((cashTotals.cash || 0) * 100) / 100,
-      upi: Math.round((cashTotals.upi || 0) * 100) / 100,
-      card: Math.round((cashTotals.card || 0) * 100) / 100,
-    },
-    orderCount: openShiftOrders.length,
-    cashMovements: [{ type: 'in', amount: 500, note: 'Float top-up', at: new Date(), by: byRole.shift_manager._id }],
+    shiftNumber: `SH-${day.replace(/-/g, '')}-0001`,
+    openedBy: byRole.cashier._id,
+    openedAt,
+    openingFloat: 2000,
     status: 'open',
-    openedAt: new Date(Date.now() - 4 * 3600000),
-    notes: 'Demo open shift',
+    branch: 'Main',
   });
 
   await AuditLog.insertMany([
-    { user: byRole.admin._id, action: 'seed', entityType: 'System', summary: 'Database seeded', meta: { users: users.length } },
-    { user: byRole.shift_manager._id, action: 'shift.start', entityType: 'Shift', summary: 'Opened demo shift' },
-    { user: byRole.cashier._id, action: 'order.payment', entityType: 'Order', summary: 'Sample payment audit' },
-    { user: byRole.kitchen._id, action: 'kitchen.ready', entityType: 'KitchenTicket', summary: 'Sample kitchen audit' },
+    { user: byRole.admin._id, action: 'seed', entityType: 'System', summary: 'Database seeded with all-drinks catalog & role IDs', meta: { users: users.length } },
+    { user: byRole.shift_manager._id, action: 'shift.start', entityType: 'Shift', summary: 'Opened morning café barista shift' },
+    { user: byRole.cashier._id, action: 'order.payment', entityType: 'Order', summary: 'Processed cold brew & shake checkout' },
+    { user: byRole.kitchen._id, action: 'kitchen.ready', entityType: 'KitchenTicket', summary: 'Prepared hot honey cappuccino' },
   ]);
 
   const todayKey = day.replace(/-/g, '');
@@ -397,19 +651,19 @@ async function runSeed() {
 
   console.log('✅ Seeding completed successfully!');
   console.log(`   - Users:        ${users.length}`);
-  console.log(`   - Categories:   ${categories.length}`);
-  console.log(`   - Menu Items:   ${items.length}`);
+  console.log(`   - Categories:   ${categories.length} (Hot Drinks, Cold Drinks, Shakes, Juices & Coolers)`);
+  console.log(`   - Menu Drinks:  ${items.length}`);
   console.log(`   - Stock Items:  ${stockDocs.length}`);
-  console.log(`   - Tables:       ${tables.length}`);
+  console.log(`   - Tables:       ${tables.length} (Available, Occupied, Cleaning)`);
   console.log(`   - Total Orders: ${n}`);
   console.log('');
-  console.log('🔑 Credentials:');
-  console.log('   👑 Admin:   admin@restoflow.test   / Admin@12345');
-  console.log('   🧾 Staff:   staff@restoflow.test   / Staff@12345');
-  console.log('   👔 Manager: manager@restoflow.test / Manager@12345');
-  console.log('   💵 Cashier: cashier@restoflow.test / Cashier@12345');
-  console.log('   🍳 Kitchen: kitchen@restoflow.test / Kitchen@12345');
-  console.log('   🎟️ Coupons: WELCOME10, FLAT50');
+  console.log('🔑 Redesigned Credentials (Login with User ID or Email):');
+  console.log('   👑 Admin:       admin   or admin@sugarsizzle.com   / Admin@123');
+  console.log('   💵 Cashier:     cashier or cashier@sugarsizzle.com / Cashier@123');
+  console.log('   🍳 Chef:        chef    or chef@sugarsizzle.com    / Chef@123');
+  console.log('   🍽️ Waitstaff:   staff   or staff@sugarsizzle.com   / Staff@123');
+  console.log('   👔 Manager:     manager or manager@sugarsizzle.com / Manager@123');
+  console.log('   🎟️ Promo Codes: WELCOME10, FLAT50');
 
   await mongoose.disconnect();
 }

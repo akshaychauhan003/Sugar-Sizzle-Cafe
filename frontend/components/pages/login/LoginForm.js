@@ -34,14 +34,14 @@ export default function LoginForm({ onSubmit, error, busy }) {
         </p>
 
         <label>
-          Email address
+          User ID or Email
           <input
-            type="email"
+            type="text"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="username"
             autoFocus
-            placeholder="e.g. staff@restoflow.test"
+            placeholder="e.g. admin, cashier, chef, or staff"
           />
         </label>
 

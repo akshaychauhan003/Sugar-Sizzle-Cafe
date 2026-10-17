@@ -3,6 +3,7 @@ const { ROLES } = require('../lib/roles');
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true, maxlength: 80 },
+  username: { type: String, trim: true, lowercase: true, unique: true, sparse: true, maxlength: 40 },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   passwordHash: { type: String, required: true, select: false },
   role: { type: String, enum: ROLES, default: 'staff', index: true },
@@ -20,6 +21,9 @@ userSchema.set('toJSON', {
     r.id = String(r._id);
     delete r._id;
     delete r.passwordHash;
+    if (!r.username) {
+      r.username = r.email ? r.email.split('@')[0] : '';
+    }
     if (!r.roles || !r.roles.length) {
       r.roles = r.role ? [r.role] : ['staff'];
     }
