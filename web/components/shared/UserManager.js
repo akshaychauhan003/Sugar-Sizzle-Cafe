@@ -203,8 +203,8 @@ export default function UserManager() {
           <b>No users found matching your search.</b>
         </div>
       ) : (
-        <div className="card" style={{ overflowX: 'auto', padding: 0 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.86rem' }}>
+        <div className="card tablewrap" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', padding: 0 }}>
+          <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.86rem' }}>
             <thead>
               <tr style={{ background: 'var(--cream)', borderBottom: '1.5px solid var(--border-light)' }}>
                 <th style={{ padding: '10px 14px' }}>Staff Name</th>

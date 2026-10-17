@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <clipPath id="squircleClip">
+      <rect width="512" height="512" rx="112" ry="112" />
+    </clipPath>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#24140E" />
+      <stop offset="60%" stop-color="#341A10" />
+      <stop offset="100%" stop-color="#4A2518" />
+    </linearGradient>
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#B45309" stop-opacity="0.35" />
+    </linearGradient>
+    <linearGradient id="cupGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="65%" stop-color="#FFF9F2" />
+      <stop offset="100%" stop-color="#EFE2D3" />
+    </linearGradient>
+    <linearGradient id="cremaGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3B180A" />
+      <stop offset="35%" stop-color="#92400E" />
+      <stop offset="70%" stop-color="#D97706" />
+      <stop offset="100%" stop-color="#5B230C" />
+    </linearGradient>
+    <linearGradient id="steamGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="60%" stop-color="#FCD34D" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#FEF3C7" stop-opacity="0.3" />
+    </linearGradient>
+    <linearGradient id="saucerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#E2D4C3" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background App Badge -->
+  <g clip-path="url(#squircleClip)">
+    <rect width="512" height="512" fill="url(#bgGrad)" />
+    
+    <!-- Steam wisps -->
+    <path d="M 195 186 C 180 152 180 122 204 92 C 218 75 218 58 208 40" 
+          fill="none" stroke="url(#steamGrad)" stroke-width="22" stroke-linecap="round" />
+    <path d="M 256 176 C 238 142 238 108 268 74 C 284 54 284 36 270 18" 
+          fill="none" stroke="url(#steamGrad)" stroke-width="24" stroke-linecap="round" />
+    <path d="M 317 186 C 302 152 302 122 326 92 C 340 75 340 58 330 40" 
+          fill="none" stroke="url(#steamGrad)" stroke-width="22" stroke-linecap="round" />
+
+    <!-- Saucer Shadow & Plate -->
+    <ellipse cx="256" cy="420" rx="180" ry="26" fill="#150A05" opacity="0.45" />
+    <ellipse cx="256" cy="414" rx="174" ry="24" fill="url(#saucerGrad)" />
+    <ellipse cx="256" cy="411" rx="148" ry="18" fill="#FFFFFF" />
+
+    <!-- Cup Handle -->
+    <path d="M 334 256 C 428 256 442 352 338 370" 
+          fill="none" stroke="url(#cupGrad)" stroke-width="34" stroke-linecap="round" />
+    <path d="M 338 270 C 400 270 410 338 340 354" 
+          fill="none" stroke="#2B140B" stroke-width="12" stroke-linecap="round" opacity="0.9" />
+
+    <!-- Cup Body -->
+    <path d="M 142 244 L 160 364 C 166 398 202 412 256 412 C 310 412 346 398 352 364 L 370 244 Z" 
+          fill="url(#cupGrad)" />
+
+    <!-- Cup Highlight on Left Edge -->
+    <path d="M 152 254 L 168 358 C 172 382 195 394 230 402 C 205 396 185 383 180 358 L 166 254 Z" 
+          fill="#FFFFFF" opacity="0.5" />
+
+    <!-- Cup Rim & Crema -->
+    <ellipse cx="256" cy="244" rx="114" ry="32" fill="#2E1308" />
+    <ellipse cx="256" cy="244" rx="106" ry="26" fill="url(#cremaGrad)" />
+
+    <!-- Latte Art Heart in the Crema -->
+    <g fill="#FFFDF8" opacity="0.95">
+      <path d="M 256 256 C 256 256 234 234 220 239 C 208 243 210 257 222 264 C 236 272 256 282 256 282 C 256 282 276 272 290 264 C 302 257 304 243 292 239 C 278 234 256 256 256 256 Z" />
+      <circle cx="256" cy="234" r="4.5" />
+    </g>
+
+    <!-- Outer Border Inset -->
+    <rect x="6" y="6" width="500" height="500" rx="106" ry="106" fill="none" stroke="url(#borderGrad)" stroke-width="6" />
+  </g>
+</svg>

@@ -106,6 +106,70 @@ export default function AppShell({ children }) {
           </button>
         </div>
 
+        {/* Mobile User Profile Section inside Sidebar */}
+        <div className="side-user-card">
+          <div className="side-user-header">
+            <div className="avatar-circle">
+              {user.name ? user.name.slice(0, 1).toUpperCase() : 'U'}
+            </div>
+            <div className="side-user-details">
+              <b>{user.name}</b>
+              <span className="side-role-badge">
+                {ROLE_ICONS[user.role] || '👤'} {ROLE_LABELS[user.role] || user.role}
+              </span>
+            </div>
+          </div>
+          {selectableRoles.length > 1 && (
+            <div className="side-role-switch">
+              <span className="side-role-label">Active Role:</span>
+              <select
+                className="role-switch-dropdown"
+                value={user.role}
+                onChange={async (e) => {
+                  const newRole = e.target.value;
+                  try {
+                    await switchRole(newRole);
+                    toast(`Active role changed to ${ROLE_LABELS[newRole] || newRole}`);
+                    if (newRole === 'kitchen') router.push('/kitchen');
+                    else if (newRole === 'cashier') router.push('/pos');
+                    else if (newRole === 'staff') router.push('/orders');
+                  } catch (err) {
+                    toast(errMsg(err), 'err');
+                  }
+                }}
+              >
+                {selectableRoles.map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_ICONS[r] || '👤'} {ROLE_LABELS[r] || r}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="side-user-actions">
+            <button
+              type="button"
+              className="btn sm side-btn-action"
+              onClick={() => {
+                setOpen(false);
+                setShowPasswordModal(true);
+              }}
+            >
+              🔑 Password
+            </button>
+            <button
+              type="button"
+              className="btn sm danger side-btn-action"
+              onClick={() => {
+                logout();
+                router.replace('/login');
+              }}
+            >
+              🚪 Sign Out
+            </button>
+          </div>
+        </div>
+
         <nav>
           {navItems.map((n) => (
             <Link
@@ -147,7 +211,7 @@ export default function AppShell({ children }) {
           </button>
 
           <div className="top-brand-mobile">
-            <b>Sugar & Sizzle Café</b>
+            <b>☕ Sugar & Sizzle</b>
           </div>
 
           <div className="top-pills">
@@ -164,6 +228,12 @@ export default function AppShell({ children }) {
 
           <div className="grow" />
 
+          {/* Quick Active Orders Pill on Mobile */}
+          <Link href="/orders" className="mobile-orders-pill" title="Active Orders Queue">
+            <span className="pulse-dot" />
+            <span>{liveOrdersCount}</span>
+          </Link>
+
           {/* Current Active Role Badge */}
           <div className="role-navbar-pill">
             <span className="role-icon">{ROLE_ICONS[user.role] || '👤'}</span>
@@ -172,7 +242,7 @@ export default function AppShell({ children }) {
 
           {/* Multi-role Switcher if user has > 1 role or is admin */}
           {selectableRoles.length > 1 && (
-            <div className="role-switch-wrapper" title="Switch your active working role">
+            <div className="role-switch-wrapper desktop-only" title="Switch your active working role">
               <span className="role-switch-label">Switch:</span>
               <select
                 className="role-switch-dropdown"
@@ -212,13 +282,13 @@ export default function AppShell({ children }) {
             <div className="who">
               <b>{user.name}</b>
               <small>
-                {ROLE_LABELS[user.role] || user.role} • Password 🔑
+                {ROLE_LABELS[user.role] || user.role} • 🔑
               </small>
             </div>
           </div>
 
           <button
-            className="btn sm"
+            className="btn sm desktop-only"
             onClick={() => setShowPasswordModal(true)}
             title="Update your account password"
           >
@@ -233,7 +303,8 @@ export default function AppShell({ children }) {
             }}
             title="Sign out of terminal"
           >
-            Sign out
+            <span className="signout-text">Sign out</span>
+            <span className="signout-icon">🚪</span>
           </button>
         </header>
 

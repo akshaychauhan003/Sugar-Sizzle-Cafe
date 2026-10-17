@@ -21,29 +21,31 @@ export default function OrderHeaderFilters({
   onRefresh,
 }) {
   return (
-    <>
-      <div className="row between wrap">
+    <div className="orders-header-container">
+      <div className="row between wrap orders-title-bar">
         <h2>
           Orders Queue <span className="badge type">{stats.live} active</span>
         </h2>
-        <div className="row wrap">
+        <div className="row wrap order-filter-controls">
           <input
+            className="order-search-input"
             placeholder="Search order # or customer…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             aria-label="Search orders"
           />
           <select
+            className="order-type-select"
             value={typeF}
             onChange={(e) => setTypeF(e.target.value)}
             aria-label="Filter by type"
           >
-            <option value="">All Orders</option>
-            <option value="dine-in">Dine-In</option>
-            <option value="takeaway">Takeaway</option>
+            <option value="">All Types</option>
+            <option value="dine-in">🍽️ Dine-In</option>
+            <option value="takeaway">🛍️ Takeaway</option>
           </select>
-          <button className="btn" onClick={onRefresh}>
-            Refresh
+          <button type="button" className="btn sm refresh-btn" onClick={onRefresh} title="Refresh order queue">
+            🔄 Refresh
           </button>
         </div>
       </div>
@@ -70,6 +72,6 @@ export default function OrderHeaderFilters({
           ))}
         </div>
       </div>
-    </>
+    </div>
   );
 }

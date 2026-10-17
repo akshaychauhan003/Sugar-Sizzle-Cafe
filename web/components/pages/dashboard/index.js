@@ -37,6 +37,7 @@ export default function DashboardPage() {
   const [busy, setBusy] = useState(false);
   const [bill, setBill] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('overview'); // 'overview' | 'shift' | 'orders' | 'audit' | 'all'
 
   const canManage = ['admin', 'shift_manager'].includes(user?.role);
   const canShift = ['admin', 'shift_manager', 'cashier', 'staff'].includes(user?.role);
@@ -215,102 +216,160 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Modern Dashboard Section Navigation Tabs */}
+      <div className="dashboard-section-tabs no-print" role="tablist">
+        <button
+          type="button"
+          className={`dash-sec-tab ${activeSection === 'overview' ? 'active' : ''}`}
+          onClick={() => setActiveSection('overview')}
+        >
+          📊 Sales &amp; Analytics
+        </button>
+        {canShift && (
+          <button
+            type="button"
+            className={`dash-sec-tab ${activeSection === 'shift' ? 'active' : ''}`}
+            onClick={() => setActiveSection('shift')}
+          >
+            💼 Shift Register &amp; Cash
+          </button>
+        )}
+        <button
+          type="button"
+          className={`dash-sec-tab ${activeSection === 'orders' ? 'active' : ''}`}
+          onClick={() => setActiveSection('orders')}
+        >
+          📋 Recent Orders ({r?.recentOrders?.length || 0})
+        </button>
+        {canManage && (
+          <button
+            type="button"
+            className={`dash-sec-tab ${activeSection === 'audit' ? 'active' : ''}`}
+            onClick={() => setActiveSection('audit')}
+          >
+            🛡️ Audit Log ({audit?.length || 0})
+          </button>
+        )}
+        <button
+          type="button"
+          className={`dash-sec-tab ${activeSection === 'all' ? 'active' : ''}`}
+          onClick={() => setActiveSection('all')}
+          title="Show complete dashboard view with all sections"
+        >
+          📑 Complete Summary
+        </button>
+      </div>
+
       {err && <ErrorBox message={err} onRetry={load} />}
 
       {!r ? (
         !err && <Spinner />
       ) : (
         <>
-          <SalesMetricsCards report={r} />
+          {/* Section 1: Sales Metrics & Performance */}
+          <div className={`dash-section-pane ${activeSection === 'overview' || activeSection === 'all' ? 'visible' : 'hidden'}`}>
+            <SalesMetricsCards report={r} />
 
-          {r.topItems && r.topItems.length > 0 && (
-            <div className="card" style={{ marginBottom: '16px', borderLeft: '4px solid #f59e0b' }}>
-              <div className="row between" style={{ alignItems: 'center', marginBottom: '10px' }}>
-                <div>
-                  <h3 style={{ margin: 0 }}>🏆 Highest Sold Food Items Ranking</h3>
-                  <p className="muted small" style={{ margin: '2px 0 0' }}>
-                    Ranked by total quantity ordered and revenue generated
-                  </p>
-                </div>
-                <span className="badge st-completed">#1 Top Seller: {r.topItems[0].name}</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-                {r.topItems.map((item, idx) => (
-                  <div
-                    key={item.name}
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      border: idx === 0 ? '1.5px solid #f59e0b' : '1px solid var(--border-light)',
-                      background: idx === 0 ? '#fffdf0' : 'var(--surface)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      boxShadow: idx === 0 ? '0 2px 6px rgba(217, 119, 6, 0.15)' : 'none',
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span
-                          style={{
-                            fontWeight: 800,
-                            color: idx === 0 ? '#b45309' : 'var(--muted)',
-                            fontSize: '0.84rem',
-                            background: idx === 0 ? '#fef3c7' : 'rgba(0,0,0,0.04)',
-                            padding: '1px 6px',
-                            borderRadius: '4px',
-                          }}
-                        >
-                          #{idx + 1}
-                        </span>
-                        <b style={{ color: 'var(--espresso)', fontSize: '0.88rem' }}>{item.name}</b>
-                      </div>
-                      <span className="small muted">{item.quantity} orders placed</span>
-                    </div>
-                    <b style={{ color: idx === 0 ? '#b45309' : 'var(--ink)', fontSize: '0.94rem' }}>
-                      {money(item.revenue)}
-                    </b>
+            {r.topItems && r.topItems.length > 0 && (
+              <div className="card top-items-card" style={{ marginBottom: '16px', borderLeft: '4px solid #f59e0b' }}>
+                <div className="row between wrap" style={{ alignItems: 'center', marginBottom: '10px' }}>
+                  <div>
+                    <h3 style={{ margin: 0 }}>🏆 Highest Sold Food Items Ranking</h3>
+                    <p className="muted small" style={{ margin: '2px 0 0' }}>
+                      Ranked by total quantity ordered and revenue generated
+                    </p>
                   </div>
-                ))}
+                  <span className="badge st-completed">#1 Top Seller: {r.topItems[0].name}</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' }}>
+                  {r.topItems.map((item, idx) => (
+                    <div
+                      key={item.name}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: idx === 0 ? '1.5px solid #f59e0b' : '1px solid var(--border-light)',
+                        background: idx === 0 ? '#fffdf0' : 'var(--surface)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        boxShadow: idx === 0 ? '0 2px 6px rgba(217, 119, 6, 0.15)' : 'none',
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span
+                            style={{
+                              fontWeight: 800,
+                              color: idx === 0 ? '#b45309' : 'var(--muted)',
+                              fontSize: '0.84rem',
+                              background: idx === 0 ? '#fef3c7' : 'rgba(0,0,0,0.04)',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                            }}
+                          >
+                            #{idx + 1}
+                          </span>
+                          <b style={{ color: 'var(--espresso)', fontSize: '0.88rem' }}>{item.name}</b>
+                        </div>
+                        <span className="small muted">{item.quantity} orders placed</span>
+                      </div>
+                      <b style={{ color: idx === 0 ? '#b45309' : 'var(--ink)', fontSize: '0.94rem' }}>
+                        {money(item.revenue)}
+                      </b>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <div className="two">
-            <div className="card">
-              <h3>Hourly revenue</h3>
-              {r.netSales === 0 ? (
-                <Empty>No paid orders for this period.</Empty>
-              ) : (
-                <HourlyRevenueChart hourly={r.hourly} />
-              )}
+            <div className="two">
+              <div className="card">
+                <h3>Hourly revenue</h3>
+                {r.netSales === 0 ? (
+                  <Empty>No paid orders for this period.</Empty>
+                ) : (
+                  <HourlyRevenueChart hourly={r.hourly} />
+                )}
+              </div>
+              <CollectionsMix report={r} />
             </div>
-            <CollectionsMix report={r} />
           </div>
 
+          {/* Section 2: Shift Reconciliation & Float Management */}
           {canShift && (
-            <ShiftReconciliation
-              shift={shift}
-              opening={opening}
-              setOpening={setOpening}
-              moveType={moveType}
-              setMoveType={setMoveType}
-              moveAmt={moveAmt}
-              setMoveAmt={setMoveAmt}
-              actualCash={actualCash}
-              setActualCash={setActualCash}
-              busy={busy}
-              canManage={canManage}
-              onStartShift={startShift}
-              onCashMove={cashMove}
-              onReconcile={reconcile}
-              onLockShift={lockShift}
-            />
+            <div className={`dash-section-pane ${activeSection === 'shift' || activeSection === 'all' ? 'visible' : 'hidden'}`}>
+              <ShiftReconciliation
+                shift={shift}
+                opening={opening}
+                setOpening={setOpening}
+                moveType={moveType}
+                setMoveType={setMoveType}
+                moveAmt={moveAmt}
+                setMoveAmt={setMoveAmt}
+                actualCash={actualCash}
+                setActualCash={setActualCash}
+                busy={busy}
+                canManage={canManage}
+                onStartShift={startShift}
+                onCashMove={cashMove}
+                onReconcile={reconcile}
+                onLockShift={lockShift}
+              />
+            </div>
           )}
 
-          <RecentOrdersTable orders={r.recentOrders} onOpenBill={openBill} />
+          {/* Section 3: Recent Orders Table */}
+          <div className={`dash-section-pane ${activeSection === 'orders' || activeSection === 'all' ? 'visible' : 'hidden'}`}>
+            <RecentOrdersTable orders={r.recentOrders} onOpenBill={openBill} />
+          </div>
 
-          {canManage && <AuditLogTable audit={audit} />}
+          {/* Section 4: Audit Trail Table */}
+          {canManage && (
+            <div className={`dash-section-pane ${activeSection === 'audit' || activeSection === 'all' ? 'visible' : 'hidden'}`}>
+              <AuditLogTable audit={audit} />
+            </div>
+          )}
         </>
       )}
 
