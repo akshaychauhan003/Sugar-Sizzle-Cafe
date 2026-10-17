@@ -40,3 +40,6 @@ Thumbs.db
 coverage/
 */coverage/
 .nyc_output/
+
+# Deployment Guide (Ignored as requested)
+DEPLOYMENT_GUIDE.md
