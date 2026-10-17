@@ -112,7 +112,7 @@ const menuQuery = z.object({
 });
 const orderQuery = z.object({
   q: z.string().trim().max(100).optional(),
-  status: z.enum(['pending', 'preparing', 'ready', 'completed', 'cancelled']).optional(),
+  status: z.enum(['pending', 'preparing', 'ready', 'delivered', 'completed', 'cancelled']).optional(),
   type: z.enum(['dine-in', 'takeaway']).optional(),
   paymentStatus: z.enum(['unpaid', 'partial', 'paid', 'refunded']).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
