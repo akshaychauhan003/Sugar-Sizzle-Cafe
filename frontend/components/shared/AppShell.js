@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth, useToast } from './AuthProvider';
 import { Spinner } from './ui';
@@ -21,11 +21,24 @@ export default function AppShell({ children }) {
   const toast = useToast();
   const router = useRouter();
   const path = usePathname();
-  const searchParams = useSearchParams();
+  const [currentTab, setCurrentTab] = useState('menu');
   const [open, setOpen] = useState(false);
   const [clock, setClock] = useState('');
   const [liveOrdersCount, setLiveOrdersCount] = useState(0);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+
+  // Client-safe active tab tracking without triggering Next.js useSearchParams SSG bailout
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const getTab = () => {
+        const p = new URLSearchParams(window.location.search);
+        setCurrentTab(p.get('tab') || 'menu');
+      };
+      getTab();
+      window.addEventListener('popstate', getTab);
+      return () => window.removeEventListener('popstate', getTab);
+    }
+  }, [path]);
 
   // Digital clock update
   useEffect(() => {
@@ -115,7 +128,6 @@ export default function AppShell({ children }) {
     if (href.includes('?tab=')) {
       const [targetPath, query] = href.split('?');
       const targetTab = new URLSearchParams(query).get('tab');
-      const currentTab = searchParams?.get('tab') || 'menu';
       return path === targetPath && currentTab === targetTab;
     }
     if (href === '/pos') return path === '/pos';
