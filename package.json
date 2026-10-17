@@ -1,0 +1,19 @@
+{
+  "name": "sugar-and-sizzle-pos",
+  "version": "1.0.0",
+  "description": "Sugar & Sizzle — Hot Honey & Chili Co. Cafe POS & Order Management System",
+  "private": true,
+  "scripts": {
+    "setup": "bash scripts/setup.sh",
+    "seed": "cd server && npm run seed",
+    "test": "cd server && MONGODB_URI_TEST=mongodb://127.0.0.1:27017/restoflow_test npm test",
+    "test:server": "cd server && MONGODB_URI_TEST=mongodb://127.0.0.1:27017/restoflow_test npm test",
+    "dev:server": "cd server && npm run dev",
+    "dev:web": "cd web && npm run dev",
+    "build:web": "cd web && npm run build",
+    "build": "cd web && npm run build",
+    "dev": "bash scripts/start.sh",
+    "devv": "bash scripts/start.sh"
+  },
+  "devDependencies": {}
+}

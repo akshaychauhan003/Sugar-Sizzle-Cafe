@@ -1,0 +1,134 @@
+openapi: 3.0.3
+info:
+  title: RestoFlow POS API
+  version: 1.0.0
+  description: |
+    Restaurant POS & order management API. All money values are decimals with 2 places; the server
+    recomputes every total from database prices - client-supplied prices/totals are ignored.
+    Errors always look like `{ "error": { "code": "...", "message": "...", "details": [...] } }`.
+servers:
+  - url: http://localhost:5000/api
+security: [{ bearerAuth: [] }]
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: object, properties: { code: { type: string }, message: { type: string }, details: { type: array, items: { type: object } } } }
+    MenuInput:
+      type: object
+      required: [name, category, price]
+      properties:
+        name: { type: string }
+        sku: { type: string }
+        category: { type: string }
+        description: { type: string }
+        price: { type: number, minimum: 0 }
+        prepTimeMin: { type: integer }
+        imageUrl: { type: string }
+        isAvailable: { type: boolean }
+        isActive: { type: boolean }
+    OrderInput:
+      type: object
+      required: [type, items]
+      properties:
+        type: { type: string, enum: [dine-in, takeaway] }
+        tableNumber: { type: string, description: Required for dine-in }
+        customerName: { type: string }
+        notes: { type: string }
+        discount: { type: object, properties: { type: { type: string, enum: [percent, flat] }, value: { type: number } } }
+        items:
+          type: array
+          items: { type: object, required: [menuItemId, quantity], properties: { menuItemId: { type: string }, quantity: { type: integer, minimum: 1, maximum: 99 }, notes: { type: string } } }
+  responses:
+    Err: { description: Error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+paths:
+  /health: { get: { security: [], summary: Health check, responses: { '200': { description: ok }, '503': { description: DB down } } } }
+  /auth/login:
+    post:
+      security: []
+      summary: Login (rate limited)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [email, password], properties: { email: { type: string }, password: { type: string } } } } } }
+      responses: { '200': { description: "{ token, user }" }, '400': { $ref: '#/components/responses/Err' }, '401': { $ref: '#/components/responses/Err' }, '429': { $ref: '#/components/responses/Err' } }
+  /auth/me: { get: { summary: Current user, responses: { '200': { description: "{ user }" }, '401': { $ref: '#/components/responses/Err' } } } }
+  /users:
+    get: { summary: List users (admin), responses: { '200': { description: ok }, '403': { $ref: '#/components/responses/Err' } } }
+    post: { summary: Create user (admin), responses: { '201': { description: created }, '409': { $ref: '#/components/responses/Err' } } }
+  /users/{id}:
+    patch:
+      summary: Update name/role/active/password (admin)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: ok }, '404': { $ref: '#/components/responses/Err' } }
+  /menu:
+    get:
+      summary: List/search menu (staff & admin)
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: available, in: query, schema: { type: boolean } }
+        - { name: includeInactive, in: query, schema: { type: boolean }, description: Admin only }
+        - { name: sort, in: query, schema: { type: string, enum: [name, -name, price, -price, category, -createdAt] } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 100 } }
+      responses: { '200': { description: "{ data, meta }" } }
+    post: { summary: Create item (admin), requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/MenuInput' } } } }, responses: { '201': { description: created }, '403': { $ref: '#/components/responses/Err' } } }
+  /menu/categories: { get: { summary: Distinct active categories, responses: { '200': { description: ok } } } }
+  /menu/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Get item, responses: { '200': { description: ok }, '404': { $ref: '#/components/responses/Err' } } }
+    put: { summary: Update item (admin; partial update), responses: { '200': { description: ok } } }
+    delete: { summary: Deactivate item (admin; soft delete), responses: { '200': { description: ok } } }
+  /menu/{id}/availability:
+    patch:
+      summary: Toggle availability (staff & admin)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { content: { application/json: { schema: { type: object, properties: { isAvailable: { type: boolean } } } } } }
+      responses: { '200': { description: ok } }
+  /orders/quote:
+    post:
+      summary: Server-side price preview (nothing saved)
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/OrderInput' } } } }
+      responses: { '200': { description: "{ quote }" }, '400': { $ref: '#/components/responses/Err' }, '403': { description: Staff discount above limit } }
+  /orders:
+    post:
+      summary: Create order (unique order number; optional Idempotency-Key header makes retries safe)
+      parameters: [{ name: Idempotency-Key, in: header, schema: { type: string } }]
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/OrderInput' } } } }
+      responses: { '201': { description: created }, '200': { description: replay of an earlier identical request }, '400': { description: Validation or ITEM_UNAVAILABLE } }
+    get:
+      summary: List orders
+      parameters:
+        - { name: q, in: query, schema: { type: string }, description: Order number or customer name }
+        - { name: status, in: query, schema: { type: string, enum: [pending, preparing, ready, completed, cancelled] } }
+        - { name: type, in: query, schema: { type: string, enum: [dine-in, takeaway] } }
+        - { name: paymentStatus, in: query, schema: { type: string, enum: [unpaid, partial, paid] } }
+        - { name: date, in: query, schema: { type: string, format: date } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: limit, in: query, schema: { type: integer } }
+      responses: { '200': { description: "{ data, meta }" } }
+  /orders/{id}:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    get: { summary: Order detail with history, responses: { '200': { description: ok }, '404': { $ref: '#/components/responses/Err' } } }
+    patch: { summary: Edit a pending, unpaid order (items re-priced server-side), responses: { '200': { description: ok }, '409': { description: ORDER_NOT_EDITABLE } } }
+  /orders/{id}/status:
+    patch:
+      summary: "Move order through pending -> preparing -> ready -> completed (or cancelled)"
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { content: { application/json: { schema: { type: object, required: [status], properties: { status: { type: string, enum: [preparing, ready, completed, cancelled] }, note: { type: string } } } } } }
+      responses: { '200': { description: ok }, '409': { description: INVALID_STATUS_TRANSITION / PAYMENT_REQUIRED / CANCEL_REQUIRES_REFUND } }
+  /orders/{id}/payment:
+    post:
+      summary: Record a payment (cash/upi/card). No gateway - this only records it.
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }, { name: Idempotency-Key, in: header, schema: { type: string } }]
+      requestBody: { content: { application/json: { schema: { type: object, required: [method], properties: { method: { type: string, enum: [cash, upi, card] }, amount: { type: number, description: Defaults to balance due }, reference: { type: string }, idempotencyKey: { type: string } } } } } }
+      responses: { '201': { description: recorded }, '200': { description: idempotent replay }, '409': { description: OVERPAYMENT / ALREADY_PAID / ORDER_CANCELLED } }
+  /reports/daily-sales:
+    get:
+      summary: Daily dashboard metrics (orders, net sales, collections by method, hourly, top items, recent)
+      parameters: [{ name: date, in: query, schema: { type: string, format: date }, description: Defaults to today in REPORT_TZ_OFFSET_MINUTES }]
+      responses: { '200': { description: "{ report }" } }
+  /settings/tax:
+    get: { summary: Current tax rate %, responses: { '200': { description: ok } } }
+    put: { summary: Set tax rate % (admin), requestBody: { content: { application/json: { schema: { type: object, properties: { taxRate: { type: number } } } } } }, responses: { '200': { description: ok } } }
