@@ -84,7 +84,6 @@ async function autoSeedDatabase(force = false) {
     const menuCount = await MenuItem.countDocuments();
 
     if (!force && userCount > 0 && menuCount > 0) {
-      // Database already has catalog; just ensure demo staff credentials are intact
       await ensureDemoUsers();
       return { status: 'intact', userCount, menuCount };
     }

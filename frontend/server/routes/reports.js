@@ -98,6 +98,14 @@ router.get('/stock-wastage', requireAnyRole('admin', 'shift_manager', 'kitchen')
   res.json({ report: await reportService.stockWastageReport() });
 }));
 
+router.get('/top-customers', validate({ query: S.dailySalesQuery }), asyncHandler(async (req, res) => {
+  res.json({ customers: await reportService.topCustomers(req.query) });
+}));
+
+router.get('/sales-graphs', validate({ query: S.dailySalesQuery }), asyncHandler(async (req, res) => {
+  res.json({ graphs: await reportService.salesGraphsData(req.query) });
+}));
+
 router.get('/audit', requireAnyRole('admin', 'shift_manager'), validate({ query: S.auditQuery }), asyncHandler(async (req, res) => {
   res.json(await reportService.listAudit(req.query));
 }));

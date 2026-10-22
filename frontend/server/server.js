@@ -8,5 +8,7 @@ const app = require('./app');
   console.log('MongoDB connected');
   const server = app.listen(env.port, () => console.log(`RestoFlow API listening on :${env.port} (${env.nodeEnv})`));
   const shutdown = () => server.close(() => disconnectDb().then(() => process.exit(0)));
-  process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+  process.once('SIGUSR2', () => server.close(() => process.kill(process.pid, 'SIGUSR2')));
 })().catch((e) => { console.error('Startup failed:', e.message); process.exit(1); });
